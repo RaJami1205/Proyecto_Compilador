@@ -34,32 +34,14 @@
     {
       "label": "Compilar Java",
       "type": "shell",
-      "command": "cmd.exe",
+      "command": "C:/Program Files/Java/jdk-23/bin/javac.exe",
       "args": [
-        "/d",
-        "/c",
-        "if not exist bin mkdir bin && dir /s /b src\\AnalizadorSintactico\\*.java src\\Compilador\\*.java > .vscode\\sources.txt && \"C:\\Program Files\\Java\\jdk-23\\bin\\javac.exe\" -d bin -cp \"lib/*;src\" @.vscode\\sources.txt"
+        "-d", "bin",
+        "-cp", "'lib/*;src'",
+        "src/AnalizadorSintactico/*.java",
+        "src/Compilador/*.java"
       ],
       "group": "build"
-    },
-    {
-      "label": "Probar Lexer",
-      "type": "shell",
-      "command": "C:/Program Files/Java/jdk-23/bin/java.exe",
-      "args": [
-        "-cp",
-        "bin;lib/*",
-        "Compilador.TestCompilador",
-        "lex",
-        "Test/ejemplo_valido_minimo.txt"
-      ],
-      "group": "test",
-      "dependsOn": [
-        "Generar Lexer",
-        "Generar Parser",
-        "Compilar Java"
-      ],
-      "dependsOrder": "sequence"
     },
     {
       "label": "Probar Parser",
@@ -67,18 +49,18 @@
       "command": "C:/Program Files/Java/jdk-23/bin/java.exe",
       "args": [
         "-cp",
-        "bin;lib/*",
+        "bin;lib/java-cup-11b-runtime.jar;lib/java-cup-11b.jar;lib/jflex-full-1.9.1.jar",
         "Compilador.TestCompilador",
         "parse",
-        "Test/ejemplo_valido_minimo.txt"
+        "src/Test/ejemplo_valido_minimo.txt"
       ],
-      "group": "test",
       "dependsOn": [
         "Generar Lexer",
         "Generar Parser",
         "Compilar Java"
       ],
-      "dependsOrder": "sequence"
+      "dependsOrder": "sequence",
+      "group": "test"
     },
     {
       "label": "Build Completo",
