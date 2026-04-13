@@ -3,84 +3,143 @@ package Compilador;
 import AnalizadorSintactico.Lexer;
 import AnalizadorSintactico.Parser;
 import AnalizadorSintactico.sym;
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.FileReader;
 import java_cup.runtime.Symbol;
 
 public class TestCompilador {
 
     public static void main(String[] args) {
-        if (args.length != 2) {
+        String mode;
+        String archivo;
+
+        if (args.length == 1) {
+            mode = "all";
+            archivo = args[0];
+        } else if (args.length == 2) {
+            mode = args[0].trim().toLowerCase();
+            archivo = args[1];
+        } else {
             printUsage();
             return;
         }
 
-        String mode = args[0].trim().toLowerCase();
-        Path sourcePath = Path.of(args[1]);
-
-        if (!Files.exists(sourcePath)) {
-            System.err.println("No existe el archivo: " + sourcePath.toAbsolutePath());
-            return;
-        }
+        System.out.println("==========================================");
+        System.out.println("      PROYECTO 1 - ANALIZADOR");
+        System.out.println("==========================================");
+        System.out.println("Archivo: " + archivo);
+        System.out.println("Modo: " + mode);
+        System.out.println("------------------------------------------");
 
         try {
             switch (mode) {
                 case "lex":
-                    runLexer(sourcePath);
+                    ejecutarLexer(archivo);
                     break;
                 case "parse":
-                    runParser(sourcePath);
+                    ejecutarParser(archivo);
+                    break;
+                case "all":
+                    ejecutarCompleto(archivo);
                     break;
                 default:
-                    System.err.println("Modo no válido: " + mode);
+                    System.out.println("Modo no válido: " + mode);
                     printUsage();
                     break;
             }
-        } catch (Exception ex) {
-            System.err.println("Error durante la prueba: " + ex.getMessage());
-            ex.printStackTrace(System.err);
+        } catch (Exception e) {
+            System.out.println("\n[ERROR FATAL]");
+            System.out.println("No fue posible completar el análisis del archivo.");
+            System.out.println("Detalle: " + e.getMessage());
+        }
+
+        System.out.println("==========================================");
+    }
+
+    private static void ejecutarCompleto(String archivo) {
+        boolean lexicoOK = ejecutarLexer(archivo);
+
+        if (!lexicoOK) {
+            System.out.println("\n[RESUMEN]");
+            System.out.println("El archivo tiene errores léxicos.");
+            System.out.println("No se ejecutará el análisis sintáctico.");
+            return;
+        }
+
+        boolean sintacticoOK = ejecutarParser(archivo);
+
+        System.out.println("\n[RESUMEN FINAL]");
+        if (lexicoOK && sintacticoOK) {
+            System.out.println("El archivo es léxica y sintácticamente válido.");
+            System.out.println("Puede ser generado por la gramática actual.");
+        } else if (lexicoOK) {
+            System.out.println("El archivo no tiene errores léxicos,");
+            System.out.println("pero sí contiene errores sintácticos.");
         }
     }
 
-    private static void runLexer(Path sourcePath) throws IOException {
-        try (Reader reader = Files.newBufferedReader(sourcePath, StandardCharsets.UTF_8)) {
-            Lexer lexer = new Lexer(reader);
+    private static boolean ejecutarLexer(String archivo) {
+        System.out.println("\n[1] ANÁLISIS LÉXICO");
+        System.out.println("------------------------------------------");
+
+        try (FileReader fr = new FileReader(archivo)) {
+            Lexer lexer = new Lexer(fr);
             Symbol token;
 
-            System.out.println("=== ANALISIS LEXICO ===");
-            System.out.println("Archivo: " + sourcePath.toAbsolutePath());
+            while ((token = lexer.next_token()).sym != sym.EOF) {
+                String tokenName = symToString(token.sym);
+                String lexema = lexer.yytext();
 
-            do {
-                token = lexer.next_token();
-                String tokenName = sym.terminalNames[token.sym];
-                String lexeme = token.value != null ? token.value.toString() : "";
-                System.out.printf("[%d:%d] %-22s %s%n", token.left, token.right, tokenName, lexeme);
-            } while (token.sym != sym.EOF);
+                System.out.printf("Línea %-4d Col %-4d %-22s -> %s%n",
+                        token.left, token.right, tokenName, lexema);
+            }
 
-            System.out.println("Analisis lexico completado sin errores.");
+            System.out.println("\nResultado léxico: correcto.");
+            System.out.println("No se encontraron errores léxicos.");
+            return true;
+
+        } catch (Exception e) {
+            System.out.println("\nResultado léxico: incorrecto.");
+            System.out.println("Se detectó un error léxico:");
+            System.out.println("  " + e.getMessage());
+            return false;
         }
     }
 
-    private static void runParser(Path sourcePath) throws Exception {
-        try (Reader reader = Files.newBufferedReader(sourcePath, StandardCharsets.UTF_8)) {
-            Lexer lexer = new Lexer(reader);
-            Parser parser = new Parser(lexer);
+    private static boolean ejecutarParser(String archivo) {
+        System.out.println("\n[2] ANÁLISIS SINTÁCTICO");
+        System.out.println("------------------------------------------");
 
-            System.out.println("=== ANALISIS SINTACTICO ===");
-            System.out.println("Archivo: " + sourcePath.toAbsolutePath());
+        try (FileReader fr = new FileReader(archivo)) {
+            Lexer lexer = new Lexer(fr);
+            Parser parser = new Parser(lexer);
 
             parser.parse();
 
-            System.out.println("El programa es sintacticamente valido segun la gramatica definida.");
+            System.out.println("Resultado sintáctico: correcto.");
+            System.out.println("El archivo cumple la gramática definida.");
+            return true;
+
+        } catch (Exception e) {
+            System.out.println("Resultado sintáctico: incorrecto.");
+            System.out.println("Se detectó un error sintáctico.");
+            System.out.println("Detalle: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private static String symToString(int symCode) {
+        try {
+            return sym.terminalNames[symCode];
+        } catch (Exception e) {
+            return "SYM(" + symCode + ")";
         }
     }
 
     private static void printUsage() {
         System.out.println("Uso:");
-        System.out.println("  java Compilador.TestCompilador lex <ruta_archivo>");
-        System.out.println("  java Compilador.TestCompilador parse <ruta_archivo>");
+        System.out.println("  java Compilador.TestCompilador <archivo>");
+        System.out.println("  java Compilador.TestCompilador lex <archivo>");
+        System.out.println("  java Compilador.TestCompilador parse <archivo>");
+        System.out.println("  java Compilador.TestCompilador all <archivo>");
     }
 }

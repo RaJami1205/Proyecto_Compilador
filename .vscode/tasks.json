@@ -44,15 +44,13 @@
       "group": "build"
     },
     {
-      "label": "Probar Parser",
+      "label": "Ejecutar Compilador",
       "type": "shell",
       "command": "C:/Program Files/Java/jdk-23/bin/java.exe",
       "args": [
-        "-cp",
-        "bin;lib/java-cup-11b-runtime.jar;lib/java-cup-11b.jar;lib/jflex-full-1.9.1.jar",
+        "-cp", "'bin;lib/*'",
         "Compilador.TestCompilador",
-        "parse",
-        "src/Test/ejemplo_valido_minimo.txt"
+        "src/Test/ejemplo_valido_completo.txt"
       ],
       "dependsOn": [
         "Generar Lexer",
