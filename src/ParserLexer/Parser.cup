@@ -1,0 +1,328 @@
+package ParserLexer;
+
+import java_cup.runtime.Symbol;
+
+parser Parser;
+symbols sym;
+
+parser code {:
+    @Override
+    public void syntax_error(Symbol cur_token) {
+        String lexeme = (cur_token != null && cur_token.value != null)
+                ? cur_token.value.toString()
+                : "<sin-lexema>";
+
+        System.err.println(
+            "Error sintáctico en línea " + cur_token.left +
+            ", columna " + cur_token.right +
+            ". Token encontrado: " + sym.terminalNames[cur_token.sym] +
+            " (" + lexeme + ")"
+        );
+    }
+
+    @Override
+    public void unrecovered_syntax_error(Symbol cur_token) throws Exception {
+        syntax_error(cur_token);
+        throw new Exception("No fue posible recuperarse del error sintáctico.");
+    }
+:};
+
+terminal INT_T, FLOAT_T, BOOL_T, CHAR_T, STRING_T, SCIENTIFIC_T, FRAC_T, EMPTY_T;
+terminal IF, ELSE, DO, WHILE, SWITCH, CASE, DEFAULT, RETURN, BREAK, CIN, COUT;
+terminal TRUE, FALSE, MAIN;
+terminal EQUAL, N_EQUAL, LESS_T, LESS_TE, GREATHER_T, GREATHER_TE;
+terminal TILDE, ASSIGN, PIPE_L, PIPE_R, BLOCK_OPEN, BLOCK_CLOSE, INDEX_OPEN, INDEX_CLOSE, BANG, COMMA;
+terminal PLUS, MINUS, TIMES, DIV, MOD, POW, INC, DEC, AND, OR, NOT;
+terminal String IDENTIFIER, INTEGER_LITERAL, FLOAT_LITERAL, SCIENTIFIC_LITERAL, FRACTION_LITERAL, CHAR_LITERAL, STRING_LITERAL;
+
+non terminal program;
+non terminal function_prefix, function_suffix, function_decl, main_procedure, return_type;
+non terminal parameter_block_opt, parameter_list, parameter_tail, parameter, data_type;
+non terminal block, block_items, block_item;
+non terminal statement;
+non terminal local_decl, local_init, array_decl, array_init, array_type, assign_stmt, lvalue, array_access;
+non terminal matrix_literal, row_list, row_tail, row_literal, cell_list, cell_tail;
+non terminal call_expr, argument_block_opt, argument_list, argument_tail;
+non terminal read_stmt, read_target, write_stmt, output_list, output_tail, output_value;
+non terminal if_stmt, else_opt, do_while_stmt, switch_stmt, switch_body, case_section, default_opt, case_constant;
+non terminal return_stmt, break_stmt;
+non terminal expression, condition, reference_expr;
+non terminal bool_expr, bool_chain, bool_chain_tail, conj_term, conj_term_tail, bool_unit, bool_atom, rel_expr, eq_operand, bool_basic, bool_literal;
+non terminal num_expr, sum_stage, sum_tail, prod_stage, prod_tail, power_stage, prefix_stage, num_atom, incrementable, negative_literal, numeric_literal;
+non terminal string_expr, char_expr;
+
+start with program;
+
+program ::= function_prefix main_procedure function_suffix ;
+
+function_prefix ::= function_decl function_prefix
+                  | /* empty */
+                  ;
+
+function_suffix ::= function_decl function_suffix
+                  | /* empty */
+                  ;
+
+function_decl ::= return_type TILDE IDENTIFIER PIPE_L parameter_block_opt PIPE_R block ;
+
+main_procedure ::= EMPTY_T TILDE MAIN PIPE_L PIPE_R block ;
+
+return_type ::= INT_T
+              | FLOAT_T
+              | CHAR_T
+              | BOOL_T
+              ;
+
+data_type ::= INT_T
+            | FLOAT_T
+            | BOOL_T
+            | CHAR_T
+            | STRING_T
+            | SCIENTIFIC_T
+            | FRAC_T
+            ;
+
+parameter_block_opt ::= parameter_list
+                      | /* empty */
+                      ;
+
+parameter_list ::= parameter parameter_tail ;
+
+parameter_tail ::= COMMA parameter parameter_tail
+                 | /* empty */
+                 ;
+
+parameter ::= data_type TILDE IDENTIFIER ;
+
+block ::= BLOCK_OPEN block_items BLOCK_CLOSE ;
+
+block_items ::= block_item block_items
+              | /* empty */
+              ;
+
+block_item ::= statement ;
+
+statement ::= local_decl BANG
+            | local_init BANG
+            | array_decl BANG
+            | array_init BANG
+            | assign_stmt BANG
+            | expression BANG
+            | if_stmt
+            | do_while_stmt
+            | switch_stmt
+            | read_stmt BANG
+            | write_stmt BANG
+            | return_stmt BANG
+            | break_stmt BANG
+            | block
+            ;
+
+local_decl ::= data_type TILDE IDENTIFIER ;
+
+local_init ::= data_type TILDE IDENTIFIER ASSIGN expression ;
+
+array_decl ::= array_type TILDE IDENTIFIER INDEX_OPEN INTEGER_LITERAL COMMA INTEGER_LITERAL INDEX_CLOSE ;
+
+array_init ::= array_type TILDE IDENTIFIER INDEX_OPEN INTEGER_LITERAL COMMA INTEGER_LITERAL INDEX_CLOSE ASSIGN matrix_literal ;
+
+array_type ::= INT_T
+             | FLOAT_T
+             ;
+
+assign_stmt ::= lvalue ASSIGN expression ;
+
+lvalue ::= IDENTIFIER
+         | array_access
+         ;
+
+array_access ::= IDENTIFIER INDEX_OPEN num_expr COMMA num_expr INDEX_CLOSE ;
+
+matrix_literal ::= BLOCK_OPEN row_list BLOCK_CLOSE ;
+
+row_list ::= row_literal row_tail ;
+
+row_tail ::= COMMA row_literal row_tail
+           | /* empty */
+           ;
+
+row_literal ::= BLOCK_OPEN cell_list BLOCK_CLOSE ;
+
+cell_list ::= num_expr cell_tail ;
+
+cell_tail ::= COMMA num_expr cell_tail
+            | /* empty */
+            ;
+
+call_expr ::= IDENTIFIER PIPE_L argument_block_opt PIPE_R ;
+
+argument_block_opt ::= argument_list
+                     | /* empty */
+                     ;
+
+argument_list ::= expression argument_tail ;
+
+argument_tail ::= COMMA expression argument_tail
+                | /* empty */
+                ;
+
+read_stmt ::= CIN TILDE read_target ;
+
+read_target ::= IDENTIFIER
+              | array_access
+              ;
+
+write_stmt ::= COUT TILDE output_list ;
+
+output_list ::= output_value output_tail ;
+
+output_tail ::= COMMA output_value output_tail
+              | /* empty */
+              ;
+
+output_value ::= IDENTIFIER
+               | array_access
+               | numeric_literal
+               | bool_literal
+               | CHAR_LITERAL
+               | STRING_LITERAL
+               ;
+
+if_stmt ::= IF TILDE PIPE_L condition PIPE_R block else_opt ;
+
+else_opt ::= ELSE TILDE block
+           | /* empty */
+           ;
+
+do_while_stmt ::= DO TILDE block TILDE WHILE TILDE PIPE_L condition PIPE_R BANG ;
+
+switch_stmt ::= SWITCH TILDE PIPE_L expression PIPE_R TILDE BLOCK_OPEN switch_body BLOCK_CLOSE ;
+
+switch_body ::= case_section switch_body
+              | default_opt
+              | /* empty */
+              ;
+
+case_section ::= CASE TILDE case_constant TILDE block ;
+
+default_opt ::= DEFAULT TILDE block
+              | /* empty */
+              ;
+
+case_constant ::= INTEGER_LITERAL
+                | FLOAT_LITERAL
+                | SCIENTIFIC_LITERAL
+                | FRACTION_LITERAL
+                | CHAR_LITERAL
+                | bool_literal
+                ;
+
+return_stmt ::= RETURN TILDE expression ;
+
+break_stmt ::= BREAK ;
+
+expression ::= bool_expr
+             | num_expr
+             | string_expr
+             | char_expr
+             ;
+
+condition ::= bool_expr
+            | reference_expr
+            ;
+
+reference_expr ::= IDENTIFIER
+                 | call_expr
+                 ;
+
+bool_expr ::= bool_chain ;
+
+bool_chain ::= conj_term bool_chain_tail ;
+
+bool_chain_tail ::= OR conj_term bool_chain_tail
+                  | /* empty */
+                  ;
+
+conj_term ::= bool_unit conj_term_tail ;
+
+conj_term_tail ::= AND bool_unit conj_term_tail
+                 | /* empty */
+                 ;
+
+bool_unit ::= NOT bool_unit
+            | bool_atom
+            ;
+
+bool_atom ::= bool_literal
+            | rel_expr
+            | PIPE_L bool_expr PIPE_R
+            ;
+
+rel_expr ::= EQUAL PIPE_L eq_operand COMMA eq_operand PIPE_R
+           | N_EQUAL PIPE_L eq_operand COMMA eq_operand PIPE_R
+           | LESS_T PIPE_L num_expr COMMA num_expr PIPE_R
+           | LESS_TE PIPE_L num_expr COMMA num_expr PIPE_R
+           | GREATHER_T PIPE_L num_expr COMMA num_expr PIPE_R
+           | GREATHER_TE PIPE_L num_expr COMMA num_expr PIPE_R
+           ;
+
+eq_operand ::= num_expr
+             | bool_basic
+             ;
+
+bool_basic ::= bool_literal
+             | reference_expr
+             ;
+
+bool_literal ::= TRUE
+               | FALSE
+               ;
+
+num_expr ::= sum_stage ;
+
+sum_stage ::= prod_stage sum_tail ;
+
+sum_tail ::= PLUS prod_stage sum_tail
+           | MINUS prod_stage sum_tail
+           | /* empty */
+           ;
+
+prod_stage ::= power_stage prod_tail ;
+
+prod_tail ::= TIMES power_stage prod_tail
+            | DIV power_stage prod_tail
+            | MOD power_stage prod_tail
+            | /* empty */
+            ;
+
+power_stage ::= prefix_stage POW power_stage
+              | prefix_stage
+              ;
+
+prefix_stage ::= MINUS negative_literal
+               | INC incrementable
+               | DEC incrementable
+               | num_atom
+               ;
+
+num_atom ::= numeric_literal
+           | reference_expr
+           | array_access
+           | PIPE_L num_expr PIPE_R
+           ;
+
+incrementable ::= IDENTIFIER ;
+
+negative_literal ::= INTEGER_LITERAL
+                   | FLOAT_LITERAL
+                   ;
+
+numeric_literal ::= INTEGER_LITERAL
+                  | FLOAT_LITERAL
+                  | SCIENTIFIC_LITERAL
+                  | FRACTION_LITERAL
+                  ;
+
+string_expr ::= STRING_LITERAL ;
+
+char_expr ::= CHAR_LITERAL ;
