@@ -1,9 +1,6 @@
-package ParserLexer;
+package AnalizadorSintactico;
 
 import java_cup.runtime.Symbol;
-
-parser Parser;
-symbols sym;
 
 parser code {:
     @Override

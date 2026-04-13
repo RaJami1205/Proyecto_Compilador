@@ -1,0 +1,98 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Generar Lexer",
+      "type": "shell",
+      "command": "C:/Program Files/Java/jdk-23/bin/java.exe",
+      "args": [
+        "-jar",
+        "lib/jflex-full-1.9.1.jar",
+        "src/ParserLexer/Lexer.flex",
+        "-d",
+        "src/AnalizadorSintactico"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Generar Parser",
+      "type": "shell",
+      "command": "C:/Program Files/Java/jdk-23/bin/java.exe",
+      "args": [
+        "-jar",
+        "lib/java-cup-11b.jar",
+        "-parser",
+        "Parser",
+        "-symbols",
+        "sym",
+        "-destdir",
+        "src/AnalizadorSintactico",
+        "src/ParserLexer/Parser.cup"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Compilar Java",
+      "type": "shell",
+      "command": "cmd.exe",
+      "args": [
+        "/d",
+        "/c",
+        "if not exist bin mkdir bin && dir /s /b src\\AnalizadorSintactico\\*.java src\\Compilador\\*.java > .vscode\\sources.txt && \"C:\\Program Files\\Java\\jdk-23\\bin\\javac.exe\" -d bin -cp \"lib/*;src\" @.vscode\\sources.txt"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Probar Lexer",
+      "type": "shell",
+      "command": "C:/Program Files/Java/jdk-23/bin/java.exe",
+      "args": [
+        "-cp",
+        "bin;lib/*",
+        "Compilador.TestCompilador",
+        "lex",
+        "Test/ejemplo_valido_minimo.txt"
+      ],
+      "group": "test",
+      "dependsOn": [
+        "Generar Lexer",
+        "Generar Parser",
+        "Compilar Java"
+      ],
+      "dependsOrder": "sequence"
+    },
+    {
+      "label": "Probar Parser",
+      "type": "shell",
+      "command": "C:/Program Files/Java/jdk-23/bin/java.exe",
+      "args": [
+        "-cp",
+        "bin;lib/*",
+        "Compilador.TestCompilador",
+        "parse",
+        "Test/ejemplo_valido_minimo.txt"
+      ],
+      "group": "test",
+      "dependsOn": [
+        "Generar Lexer",
+        "Generar Parser",
+        "Compilar Java"
+      ],
+      "dependsOrder": "sequence"
+    },
+    {
+      "label": "Build Completo",
+      "dependsOn": [
+        "Generar Lexer",
+        "Generar Parser",
+        "Compilar Java",
+        "Probar Parser"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}
