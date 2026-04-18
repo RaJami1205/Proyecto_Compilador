@@ -2,6 +2,10 @@ package AnalizadorSintactico;
 
 import java_cup.runtime.Symbol;
 
+import java.util.List;
+import java.util.ArrayList;
+
+
 %%
 
 %public
@@ -13,12 +17,19 @@ import java_cup.runtime.Symbol;
 %state ML_COMMENT
 
 %{
+    //Lista de errores lexicos
+    private java.util.List<String> erroresLexicos = new java.util.ArrayList<>();
+
     private Symbol symbol(int type) {
         return new Symbol(type, yyline + 1, yycolumn + 1);
     }
 
     private Symbol symbol(int type, Object value) {
         return new Symbol(type, yyline + 1, yycolumn + 1, value);
+    }
+
+    public java.util.List<String> getErroresLexicos(){
+        return erroresLexicos;
     }
 %}
 
@@ -107,10 +118,11 @@ StringLiteral  = \"([^\\\"\r\n]|\\[btnrf\\'\"])*\"
     <<EOF>>                      { return symbol(sym.EOF); }
 
     .                            {
-                                     throw new RuntimeException(
-                                         "Símbolo léxico no reconocido: '" + yytext() +
-                                         "' en línea " + (yyline + 1) + ", columna " + (yycolumn + 1)
-                                     );
+                                    String msg = "Error lexico en linea: " + (yyline + 1) + 
+                                            ", columna: " + (yycolumn + 1 ) + ": caracter no reconocido: '" + yytext() + "'";
+                                    erroresLexicos.add(msg);
+                                    //System.err.println(msg); // jflex continua con el siguiente caracter 
+
                                  }
 }
 
@@ -118,8 +130,10 @@ StringLiteral  = \"([^\\\"\r\n]|\\[btnrf\\'\"])*\"
     "-}"                        { yybegin(YYINITIAL); }
     [^]                          { /* Consumir cualquier carácter dentro del comentario */ }
     <<EOF>>                      {
-                                     throw new RuntimeException(
-                                         "Comentario multilínea sin cerrar al final del archivo"
-                                     );
+                                    String msg = "Error léxico en línea " + (yyline + 1) +
+                                                ": comentario multilínea sin cerrar al final del archivo";
+                                    erroresLexicos.add(msg);
+                                    //System.err.println(msg);
+                                    return symbol(sym.EOF);
                                  }
 }

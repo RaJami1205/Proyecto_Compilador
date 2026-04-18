@@ -1,27 +1,37 @@
 package AnalizadorSintactico;
 
 import java_cup.runtime.Symbol;
+import java.util.List;
+import java.util.ArrayList;
 
 parser code {:
+    private java.util.List<String> erroresSintacticos = new java.util.ArrayList<>();
+    private boolean hayErrores = false;
+
     @Override
     public void syntax_error(Symbol cur_token) {
-        String lexeme = (cur_token != null && cur_token.value != null)
+        hayErrores = true;
+        String lexema = (cur_token != null && cur_token.value != null)
                 ? cur_token.value.toString()
                 : "<sin-lexema>";
 
-        System.err.println(
-            "Error sintáctico en línea " + cur_token.left +
-            ", columna " + cur_token.right +
-            ". Token encontrado: " + sym.terminalNames[cur_token.sym] +
-            " (" + lexeme + ")"
-        );
+        String msg =  "Error sintáctico en línea " + cur_token.left +
+                     ", columna " + cur_token.right +
+                     ". Token: " + sym.terminalNames[cur_token.sym] +
+                     " ('" + lexema + "')";
+        
+        erroresSintacticos.add(msg);
+        //System.err.println(msg);
     }
 
     @Override
     public void unrecovered_syntax_error(Symbol cur_token) throws Exception {
-        syntax_error(cur_token);
-        throw new Exception("No fue posible recuperarse del error sintáctico.");
+        //syntax_error(cur_token);
     }
+
+    public boolean tieneErrores() {return hayErrores;}
+    public java.util.List<String> getErroresSintacticos() {return erroresSintacticos;}
+
 :};
 
 terminal INT_T, FLOAT_T, BOOL_T, CHAR_T, STRING_T, SCIENTIFIC_T, FRAC_T, EMPTY_T;
@@ -102,6 +112,7 @@ parameter ::= data_type TILDE IDENTIFIER ;
 block ::= BLOCK_OPEN block_items BLOCK_CLOSE ;
 
 block_items ::= block_item block_items
+              | error BLOCK_CLOSE
               | /* empty */
               ;
 
@@ -121,6 +132,7 @@ statement ::= declaration_stmt BANG
             | return_stmt BANG
             | break_stmt BANG
             | block
+            | error BANG
             ;
 
 declaration_stmt ::= typed_decl ;

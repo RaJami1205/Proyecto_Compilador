@@ -5,6 +5,8 @@ import AnalizadorSintactico.Parser;
 import AnalizadorSintactico.sym;
 import java.io.FileReader;
 import java_cup.runtime.Symbol;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 
 public class TestCompilador {
 
@@ -47,7 +49,7 @@ public class TestCompilador {
                     break;
             }
         } catch (Exception e) {
-            System.out.println("\n[ERROR FATAL]");
+            System.out.println("\n[ERROR FcATAL]");
             System.out.println("No fue posible completar el análisis del archivo.");
             System.out.println("Detalle: " + e.getMessage());
         }
@@ -55,76 +57,72 @@ public class TestCompilador {
         System.out.println("==========================================");
     }
 
-    private static void ejecutarCompleto(String archivo) {
+    private static void ejecutarCompleto(String archivo) throws Exception{
         boolean lexicoOK = ejecutarLexer(archivo);
-
-        if (!lexicoOK) {
-            System.out.println("\n[RESUMEN]");
-            System.out.println("El archivo tiene errores léxicos.");
-            System.out.println("No se ejecutará el análisis sintáctico.");
-            return;
-        }
-
         boolean sintacticoOK = ejecutarParser(archivo);
 
         System.out.println("\n[RESUMEN FINAL]");
+        System.out.println("------------------------------------------");
         if (lexicoOK && sintacticoOK) {
             System.out.println("El archivo es léxica y sintácticamente válido.");
             System.out.println("Puede ser generado por la gramática actual.");
         } else if (lexicoOK) {
-            System.out.println("El archivo no tiene errores léxicos,");
-            System.out.println("pero sí contiene errores sintácticos.");
+            System.out.println("Léxico: OK");
+            System.out.println("Sintáctico: contiene errores (ver arriba).");
+        } else if (sintacticoOK) {
+            System.out.println("Léxico: contiene errores (ver arriba).");
+            System.out.println("Sintáctico: OK");
+        } else {
+            System.out.println("El archivo contiene errores léxicos y sintácticos (ver arriba).");
         }
     }
 
-    private static boolean ejecutarLexer(String archivo) {
-        System.out.println("\n[1] ANÁLISIS LÉXICO");
+    private static boolean ejecutarLexer(String archivo) throws Exception{
+        System.out.println("\n[1] ANALISIS LÉXICO");
         System.out.println("------------------------------------------");
 
-        try (FileReader fr = new FileReader(archivo)) {
-            Lexer lexer = new Lexer(fr);
-            Symbol token;
+        Lexer lexer = new Lexer(new FileReader(archivo));
+        Symbol token;
+        boolean hayErrores = false;
 
-            while ((token = lexer.next_token()).sym != sym.EOF) {
-                String tokenName = symToString(token.sym);
-                String lexema = lexer.yytext();
+        // next_token() ya no lanza excepción — simplemente imprime el error
+        // y retorna el siguiente token válido
+        while ((token = lexer.next_token()).sym != sym.EOF) {
+            String tokenName = symToString(token.sym);
+            String lexema   = (token.value != null) ? token.value.toString() : lexer.yytext();
 
-                System.out.printf("Línea %-4d Col %-4d %-22s -> %s%n",
-                        token.left, token.right, tokenName, lexema);
-            }
-
-            System.out.println("\nResultado léxico: correcto.");
-            System.out.println("No se encontraron errores léxicos.");
-            return true;
-
-        } catch (Exception e) {
-            System.out.println("\nResultado léxico: incorrecto.");
-            System.out.println("Se detectó un error léxico:");
-            System.out.println("  " + e.getMessage());
-            return false;
+            System.out.printf("Línea %-4d Col %-4d %-22s -> %s%n",
+                    token.left, token.right, tokenName, lexema);
         }
+
+        // Consultar errores acumulados en el lexer
+        if (!lexer.getErroresLexicos().isEmpty()) {
+            hayErrores = true;
+            System.out.println("\n--- Errores léxicos encontrados ---");
+            lexer.getErroresLexicos().forEach(e -> System.out.println("  " + e));
+        }
+
+        System.out.println("\nResultado léxico: " + (hayErrores ? "incorrecto." : "correcto."));
+        return !hayErrores;
     }
 
-    private static boolean ejecutarParser(String archivo) {
-        System.out.println("\n[2] ANÁLISIS SINTÁCTICO");
+    private static boolean ejecutarParser(String archivo) throws Exception{
+        System.out.println("\n[2] ANALISIS SINTACTICO");
         System.out.println("------------------------------------------");
 
-        try (FileReader fr = new FileReader(archivo)) {
-            Lexer lexer = new Lexer(fr);
-            Parser parser = new Parser(lexer);
+        Lexer lexer   = new Lexer(new FileReader(archivo));
+        Parser parser = new Parser(lexer);
 
-            parser.parse();
+        parser.parse();
 
-            System.out.println("Resultado sintáctico: correcto.");
-            System.out.println("El archivo cumple la gramática definida.");
-            return true;
-
-        } catch (Exception e) {
-            System.out.println("Resultado sintáctico: incorrecto.");
-            System.out.println("Se detectó un error sintáctico.");
-            System.out.println("Detalle: " + e.getMessage());
-            return false;
+        if (!parser.getErroresSintacticos().isEmpty()) {
+            System.out.println("--- Errores sintácticos encontrados ---");
+            parser.getErroresSintacticos().forEach(e -> System.out.println("  " + e));
         }
+
+        System.out.println("\nResultado sintáctico: " +
+                (parser.tieneErrores() ? "incorrecto." : "correcto."));
+        return !parser.tieneErrores();
     }
 
     private static String symToString(int symCode) {
