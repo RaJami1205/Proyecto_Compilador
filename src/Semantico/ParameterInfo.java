@@ -1,4 +1,4 @@
-package TablaSimbolos;
+package Semantico;
 
 public class ParameterInfo {
     private final String name;

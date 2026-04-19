@@ -3,26 +3,35 @@ package AnalizadorSintactico;
 import java_cup.runtime.Symbol;
 import java.util.ArrayList;
 import java.util.List;
+import TablaSimbolos.*;
 
 parser code {:
     private final List<String> erroresSintacticos = new ArrayList<>();
+    private final List<String> erroresSemanticos = new ArrayList<>();
 
-    private Symbol ultimoTokenLeido = null;
-    private Symbol tokenAnterior = null;
+    private final SymbolTableManager tablaSimbolos = new SymbolTableManager();
+
+    private SymbolInfo currentFunction = null;
+    private int blockCounter = 0;
 
     public List<String> getErroresSintacticos() {
         return erroresSintacticos;
     }
 
-    public boolean tieneErrores() {
-        return !erroresSintacticos.isEmpty();
+    public List<String> getErroresSemanticos() {
+        return erroresSemanticos;
     }
 
-    @Override
-    public Symbol scan() throws Exception {
-        tokenAnterior = ultimoTokenLeido;
-        ultimoTokenLeido = super.scan();
-        return ultimoTokenLeido;
+    public boolean tieneErrores() {
+        return !erroresSintacticos.isEmpty() || !erroresSemanticos.isEmpty();
+    }
+
+    public boolean tieneErroresSemanticos() {
+        return !erroresSemanticos.isEmpty();
+    }
+
+    public SymbolTableManager getTablaSimbolos() {
+        return tablaSimbolos;
     }
 
     private String nombreToken(Symbol tok) {
@@ -39,87 +48,200 @@ parser code {:
         return tok.value != null ? tok.value.toString() : nombreToken(tok);
     }
 
-    private String posicion(Symbol tok) {
-        if (tok == null) return "línea ?, columna ?";
-        return "línea " + tok.left + ", columna " + tok.right;
+    private void errorSemantico(String mensaje) {
+        erroresSemanticos.add(mensaje);
     }
 
-    private boolean esInicioDeSentenciaOExpresion(Symbol tok) {
-        if (tok == null) return false;
+    private void declararFuncion(String name, DataType returnType, int line, int col, boolean isMain) {
+        SymbolInfo info = new SymbolInfo(
+                name,
+                isMain ? SymbolKind.MAIN : SymbolKind.FUNCTION,
+                isMain ? DataType.EMPTY : returnType,
+                line,
+                col,
+                "global",
+                0
+        );
 
-        switch (tok.sym) {
-            case sym.IDENTIFIER:
-            case sym.INTEGER_LITERAL:
-            case sym.FLOAT_LITERAL:
-            case sym.SCIENTIFIC_LITERAL:
-            case sym.FRACTION_LITERAL:
-            case sym.CHAR_LITERAL:
-            case sym.STRING_LITERAL:
-            case sym.TRUE:
-            case sym.FALSE:
-            case sym.PIPE_R:
-            case sym.INDEX_CLOSE:
-                return true;
-            default:
-                return false;
+        boolean inserted = tablaSimbolos.insertIntoGlobal(info);
+        if (!inserted) {
+            errorSemantico(
+                "Error semántico: redeclaración de función/procedimiento '" + name +
+                "' en línea " + line + ", columna " + col
+            );
+            currentFunction = tablaSimbolos.lookupGlobal(name);
+        } else {
+            currentFunction = info;
+        }
+
+        tablaSimbolos.enterScope(name);
+    }
+
+    private void cerrarFuncion() {
+        currentFunction = null;
+        tablaSimbolos.exitScope();
+    }
+
+    private void registrarParametros(ArrayList params) {
+        if (params == null) return;
+
+        for (Object obj : params) {
+            ParameterInfo p = (ParameterInfo) obj;
+
+            SymbolInfo s = new SymbolInfo(
+                    p.getName(),
+                    SymbolKind.PARAMETER,
+                    p.getType(),
+                    p.getLine(),
+                    p.getColumn(),
+                    tablaSimbolos.currentScope().getName(),
+                    tablaSimbolos.currentScope().getLevel()
+            );
+            s.setInitialized(true);
+
+            boolean inserted = tablaSimbolos.insert(s);
+            if (!inserted) {
+                errorSemantico(
+                    "Error semántico: parámetro redeclarado '" + p.getName() +
+                    "' en línea " + p.getLine() + ", columna " + p.getColumn()
+                );
+            }
+
+            if (currentFunction != null) {
+                currentFunction.addParameter(p.getName(), p.getType());
+            }
         }
     }
 
-    private String sugerencia(Symbol actual, Symbol anterior) {
-        if (actual == null) {
-            return "Se alcanzó el final del archivo.";
+    private void declararIdentificador(String name, DataType type, DeclTailInfo tail, int line, int col) {
+        SymbolKind kind = tail.isArray() ? SymbolKind.ARRAY : SymbolKind.VARIABLE;
+
+        SymbolInfo info = new SymbolInfo(
+                name,
+                kind,
+                type,
+                line,
+                col,
+                tablaSimbolos.currentScope().getName(),
+                tablaSimbolos.currentScope().getLevel()
+        );
+
+        info.setInitialized(tail.isInitialized());
+
+        if (tail.isArray()) {
+            info.setDimensions(tail.getDim1(), tail.getDim2());
         }
 
-        if ((actual.sym == sym.BLOCK_CLOSE || actual.sym == sym.EOF) && esInicioDeSentenciaOExpresion(anterior)) {
-            return "Posible sentencia incompleta: probablemente faltó '!' antes de " +
-                   nombreToken(actual) + " (" + lexemaToken(actual) + ").";
+        boolean inserted = tablaSimbolos.insert(info);
+        if (!inserted) {
+            errorSemantico(
+                "Error semántico: identificador redeclarado '" + name +
+                "' en línea " + line + ", columna " + col +
+                " dentro del scope '" + tablaSimbolos.currentScope().getName() + "'"
+            );
         }
-
-        if (actual.sym == sym.BLOCK_CLOSE) {
-            return "Se encontró el cierre de bloque ':|' en un punto donde la gramática esperaba otra construcción.";
-        }
-
-        if (actual.sym == sym.BANG) {
-            return "Se encontró '!' en una posición no válida.";
-        }
-
-        return "Revise la construcción inmediatamente anterior al token encontrado.";
     }
 
-    private String construirMensajeError(Symbol actual) {
-        StringBuilder sb = new StringBuilder();
+    private void usarVariable(String name, int line, int col) {
+        SymbolInfo s = tablaSimbolos.lookup(name);
 
-        sb.append("Error sintáctico detectado en ")
-          .append(posicion(actual))
-          .append(". Token encontrado: ")
-          .append(nombreToken(actual))
-          .append(" (")
-          .append(lexemaToken(actual))
-          .append(").");
-
-        if (tokenAnterior != null) {
-            sb.append(" Contexto previo: ")
-              .append(nombreToken(tokenAnterior))
-              .append(" (")
-              .append(lexemaToken(tokenAnterior))
-              .append(") en ")
-              .append(posicion(tokenAnterior))
-              .append(".");
+        if (s == null) {
+            errorSemantico(
+                "Error semántico: identificador no declarado '" + name +
+                "' en línea " + line + ", columna " + col
+            );
+            return;
         }
 
-        sb.append(" ").append(sugerencia(actual, tokenAnterior));
+        if (s.getKind() == SymbolKind.FUNCTION || s.getKind() == SymbolKind.MAIN) {
+            errorSemantico(
+                "Error semántico: '" + name +
+                "' es una función/procedimiento y no una variable en línea " + line + ", columna " + col
+            );
+            return;
+        }
 
-        return sb.toString();
+        if (s.getKind() == SymbolKind.ARRAY) {
+            errorSemantico(
+                "Error semántico: el arreglo '" + name +
+                "' requiere índices en línea " + line + ", columna " + col
+            );
+            return;
+        }
+
+        s.setUsed(true);
+    }
+
+    private void usarArreglo(String name, int line, int col) {
+        SymbolInfo s = tablaSimbolos.lookup(name);
+
+        if (s == null) {
+            errorSemantico(
+                "Error semántico: arreglo no declarado '" + name +
+                "' en línea " + line + ", columna " + col
+            );
+            return;
+        }
+
+        if (s.getKind() != SymbolKind.ARRAY) {
+            errorSemantico(
+                "Error semántico: '" + name +
+                "' no es un arreglo en línea " + line + ", columna " + col
+            );
+            return;
+        }
+
+        s.setUsed(true);
+    }
+
+    private void usarFuncion(String name, int line, int col) {
+        SymbolInfo s = tablaSimbolos.lookupGlobal(name);
+
+        if (s == null) {
+            errorSemantico(
+                "Error semántico: función/procedimiento no declarado '" + name +
+                "' en línea " + line + ", columna " + col
+            );
+            return;
+        }
+
+        if (s.getKind() != SymbolKind.FUNCTION && s.getKind() != SymbolKind.MAIN) {
+            errorSemantico(
+                "Error semántico: '" + name +
+                "' no es una función/procedimiento en línea " + line + ", columna " + col
+            );
+            return;
+        }
+
+        s.setUsed(true);
+    }
+
+    private void entrarBloqueAnonimo() {
+        blockCounter++;
+        tablaSimbolos.enterScope("block_" + blockCounter);
+    }
+
+    private void salirScope() {
+        tablaSimbolos.exitScope();
     }
 
     @Override
     public void syntax_error(Symbol cur_token) {
-        erroresSintacticos.add(construirMensajeError(cur_token));
+        String mensaje =
+                "Error sintáctico en línea " + (cur_token != null ? cur_token.left : -1) +
+                ", columna " + (cur_token != null ? cur_token.right : -1) +
+                ". Token encontrado: " + nombreToken(cur_token) +
+                " (" + lexemaToken(cur_token) + ")";
+        erroresSintacticos.add(mensaje);
     }
 
     @Override
     public void unrecovered_syntax_error(Symbol cur_token) throws Exception {
-        String mensaje = "Recuperación fallida. " + construirMensajeError(cur_token);
+        String mensaje =
+                "Recuperación fallida en línea " + (cur_token != null ? cur_token.left : -1) +
+                ", columna " + (cur_token != null ? cur_token.right : -1) +
+                ". No fue posible continuar desde: " + nombreToken(cur_token) +
+                " (" + lexemaToken(cur_token) + ")";
         erroresSintacticos.add(mensaje);
         done_parsing();
     }
@@ -134,13 +256,14 @@ terminal PLUS, MINUS, TIMES, DIV, MOD, POW, INC, DEC, AND, OR, NOT;
 terminal String IDENTIFIER, INTEGER_LITERAL, FLOAT_LITERAL, SCIENTIFIC_LITERAL, FRACTION_LITERAL, CHAR_LITERAL, STRING_LITERAL;
 
 non terminal program;
-non terminal function_prefix, function_suffix, function_decl, main_procedure, return_type;
-non terminal parameter_block_opt, parameter_list, parameter_tail, parameter, data_type;
+non terminal function_prefix, function_suffix, function_decl, main_procedure;
+
+non terminal java.util.ArrayList parameter_block_opt, parameter_list, parameter_tail;
 
 non terminal block, block_items, block_item;
 non terminal statement;
 
-non terminal declaration_stmt, typed_decl, int_decl_tail, float_decl_tail, other_decl_tail, non_array_type, array_init_opt;
+non terminal declaration_stmt, typed_decl;
 non terminal assign_stmt, lvalue, array_access;
 
 non terminal matrix_literal, row_list, row_tail, row_literal, cell_list, cell_tail;
@@ -157,6 +280,11 @@ non terminal bool_expr, bool_chain, bool_chain_tail, conj_term, conj_term_tail, 
 non terminal num_expr, sum_stage, sum_tail, prod_stage, prod_tail, power_stage, prefix_stage, num_atom, incrementable, negative_literal, numeric_literal;
 non terminal string_expr, char_expr;
 
+non terminal DataType return_type, data_type, non_array_type;
+non terminal ParameterInfo parameter;
+non terminal DeclTailInfo int_decl_tail, float_decl_tail, other_decl_tail;
+non terminal Boolean array_init_opt;
+
 start with program;
 
 program ::= function_prefix main_procedure function_suffix ;
@@ -169,39 +297,90 @@ function_suffix ::= function_decl function_suffix
                   | /* empty */
                   ;
 
-function_decl ::= return_type TILDE IDENTIFIER PIPE_L parameter_block_opt PIPE_R block ;
+function_decl ::= return_type:rt TILDE IDENTIFIER:id
+                  {:
+                      declararFuncion(id, rt, idleft, idright, false);
+                  :}
+                  PIPE_L parameter_block_opt:params PIPE_R
+                  {:
+                      registrarParametros(params);
+                  :}
+                  block
+                  {:
+                      cerrarFuncion();
+                  :}
+                  ;
 
-main_procedure ::= EMPTY_T TILDE MAIN PIPE_L PIPE_R block ;
+main_procedure ::= EMPTY_T TILDE MAIN:m
+                   {:
+                       declararFuncion("__main__", DataType.EMPTY, mleft, mright, true);
+                   :}
+                   PIPE_L PIPE_R
+                   block
+                   {:
+                       cerrarFuncion();
+                   :}
+                   ;
 
-return_type ::= INT_T
-              | FLOAT_T
-              | CHAR_T
-              | BOOL_T
+return_type ::= INT_T    {: RESULT = DataType.INT; :}
+              | FLOAT_T  {: RESULT = DataType.FLOAT; :}
+              | CHAR_T   {: RESULT = DataType.CHAR; :}
+              | BOOL_T   {: RESULT = DataType.BOOL; :}
               ;
 
-data_type ::= INT_T
-            | FLOAT_T
-            | BOOL_T
-            | CHAR_T
-            | STRING_T
-            | SCIENTIFIC_T
-            | FRAC_T
+data_type ::= INT_T         {: RESULT = DataType.INT; :}
+            | FLOAT_T       {: RESULT = DataType.FLOAT; :}
+            | BOOL_T        {: RESULT = DataType.BOOL; :}
+            | CHAR_T        {: RESULT = DataType.CHAR; :}
+            | STRING_T      {: RESULT = DataType.STRING; :}
+            | SCIENTIFIC_T  {: RESULT = DataType.SCIENTIFIC; :}
+            | FRAC_T        {: RESULT = DataType.FRAC; :}
             ;
 
-parameter_block_opt ::= parameter_list
+parameter_block_opt ::= parameter_list:p
+                        {: RESULT = p; :}
                       | /* empty */
+                        {: RESULT = new java.util.ArrayList(); :}
                       ;
 
-parameter_list ::= parameter parameter_tail ;
-
-parameter_tail ::= COMMA parameter parameter_tail
-                 | /* empty */
+parameter_list ::= parameter:p parameter_tail:t
+                   {:
+                       t.add(0, p);
+                       RESULT = t;
+                   :}
                  ;
 
-parameter ::= data_type TILDE IDENTIFIER ;
+parameter_tail ::= COMMA parameter:p parameter_tail:t
+                   {:
+                       t.add(0, p);
+                       RESULT = t;
+                   :}
+                 | /* empty */
+                   {: RESULT = new java.util.ArrayList(); :}
+                 ;
 
-block ::= BLOCK_OPEN block_items BLOCK_CLOSE
-        | BLOCK_OPEN error BLOCK_CLOSE
+parameter ::= data_type:t TILDE IDENTIFIER:id
+              {: RESULT = new ParameterInfo(id, t, idleft, idright); :}
+              ;
+
+block ::= BLOCK_OPEN
+          {:
+              entrarBloqueAnonimo();
+          :}
+          block_items
+          BLOCK_CLOSE
+          {:
+              salirScope();
+          :}
+        | BLOCK_OPEN
+          {:
+              entrarBloqueAnonimo();
+          :}
+          error
+          BLOCK_CLOSE
+          {:
+              salirScope();
+          :}
         ;
 
 block_items ::= block_item block_items
@@ -229,43 +408,70 @@ statement ::= declaration_stmt BANG
 
 declaration_stmt ::= typed_decl ;
 
-typed_decl ::= INT_T TILDE IDENTIFIER int_decl_tail
-             | FLOAT_T TILDE IDENTIFIER float_decl_tail
-             | non_array_type TILDE IDENTIFIER other_decl_tail
+typed_decl ::= INT_T TILDE IDENTIFIER:id int_decl_tail:t
+               {:
+                   declararIdentificador(id, DataType.INT, t, idleft, idright);
+               :}
+             | FLOAT_T TILDE IDENTIFIER:id float_decl_tail:t
+               {:
+                   declararIdentificador(id, DataType.FLOAT, t, idleft, idright);
+               :}
+             | non_array_type:t TILDE IDENTIFIER:id other_decl_tail:tail
+               {:
+                   declararIdentificador(id, t, tail, idleft, idright);
+               :}
              ;
 
-non_array_type ::= BOOL_T
-                 | CHAR_T
-                 | STRING_T
-                 | SCIENTIFIC_T
-                 | FRAC_T
+non_array_type ::= BOOL_T        {: RESULT = DataType.BOOL; :}
+                 | CHAR_T        {: RESULT = DataType.CHAR; :}
+                 | STRING_T      {: RESULT = DataType.STRING; :}
+                 | SCIENTIFIC_T  {: RESULT = DataType.SCIENTIFIC; :}
+                 | FRAC_T        {: RESULT = DataType.FRAC; :}
                  ;
 
 other_decl_tail ::= ASSIGN expression
+                    {: RESULT = DeclTailInfo.scalar(true); :}
                   | /* empty */
+                    {: RESULT = DeclTailInfo.scalar(false); :}
                   ;
 
 int_decl_tail ::= ASSIGN expression
-                | INDEX_OPEN INTEGER_LITERAL COMMA INTEGER_LITERAL INDEX_CLOSE array_init_opt
+                  {: RESULT = DeclTailInfo.scalar(true); :}
+                | INDEX_OPEN INTEGER_LITERAL:d1 COMMA INTEGER_LITERAL:d2 INDEX_CLOSE array_init_opt:init
+                  {: RESULT = DeclTailInfo.array(Integer.parseInt(d1), Integer.parseInt(d2), init.booleanValue()); :}
                 | /* empty */
+                  {: RESULT = DeclTailInfo.scalar(false); :}
                 ;
 
 float_decl_tail ::= ASSIGN expression
-                  | INDEX_OPEN INTEGER_LITERAL COMMA INTEGER_LITERAL INDEX_CLOSE array_init_opt
+                    {: RESULT = DeclTailInfo.scalar(true); :}
+                  | INDEX_OPEN INTEGER_LITERAL:d1 COMMA INTEGER_LITERAL:d2 INDEX_CLOSE array_init_opt:init
+                    {: RESULT = DeclTailInfo.array(Integer.parseInt(d1), Integer.parseInt(d2), init.booleanValue()); :}
                   | /* empty */
+                    {: RESULT = DeclTailInfo.scalar(false); :}
                   ;
 
 array_init_opt ::= ASSIGN matrix_literal
+                   {: RESULT = Boolean.TRUE; :}
                  | /* empty */
+                   {: RESULT = Boolean.FALSE; :}
                  ;
 
 assign_stmt ::= lvalue ASSIGN expression ;
 
-lvalue ::= IDENTIFIER
+lvalue ::= IDENTIFIER:id
+           {:
+               usarVariable(id, idleft, idright);
+           :}
          | array_access
          ;
 
-array_access ::= IDENTIFIER INDEX_OPEN num_expr COMMA num_expr INDEX_CLOSE ;
+array_access ::= IDENTIFIER:id
+                 {:
+                     usarArreglo(id, idleft, idright);
+                 :}
+                 INDEX_OPEN num_expr COMMA num_expr INDEX_CLOSE
+                 ;
 
 matrix_literal ::= BLOCK_OPEN row_list BLOCK_CLOSE ;
 
@@ -283,7 +489,12 @@ cell_tail ::= COMMA num_expr cell_tail
             | /* empty */
             ;
 
-call_expr ::= IDENTIFIER PIPE_L argument_block_opt PIPE_R ;
+call_expr ::= IDENTIFIER:id
+              {:
+                  usarFuncion(id, idleft, idright);
+              :}
+              PIPE_L argument_block_opt PIPE_R
+              ;
 
 argument_block_opt ::= argument_list
                      | /* empty */
@@ -297,7 +508,10 @@ argument_tail ::= COMMA expression argument_tail
 
 read_stmt ::= CIN TILDE read_target ;
 
-read_target ::= IDENTIFIER
+read_target ::= IDENTIFIER:id
+                {:
+                    usarVariable(id, idleft, idright);
+                :}
               | array_access
               ;
 
@@ -309,7 +523,10 @@ output_tail ::= COMMA output_value output_tail
               | /* empty */
               ;
 
-output_value ::= IDENTIFIER
+output_value ::= IDENTIFIER:id
+                 {:
+                     usarVariable(id, idleft, idright);
+                 :}
                | array_access
                | numeric_literal
                | bool_literal
@@ -361,7 +578,10 @@ expression ::= bool_expr
 
 condition ::= bool_expr ;
 
-reference_expr ::= IDENTIFIER
+reference_expr ::= IDENTIFIER:id
+                   {:
+                       usarVariable(id, idleft, idright);
+                   :}
                  | call_expr
                  ;
 

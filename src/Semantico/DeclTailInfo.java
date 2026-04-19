@@ -1,4 +1,4 @@
-package TablaSimbolos;
+package Semantico;
 
 public class DeclTailInfo {
     private final boolean array;

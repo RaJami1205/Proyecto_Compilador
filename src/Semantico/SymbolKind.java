@@ -1,4 +1,4 @@
-package TablaSimbolos;
+package Semantico;
 
 public enum SymbolKind {
     FUNCTION,

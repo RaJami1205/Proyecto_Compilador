@@ -1,4 +1,4 @@
-package TablaSimbolos;
+package Semantico;
 
 import java.util.ArrayList;
 import java.util.List;

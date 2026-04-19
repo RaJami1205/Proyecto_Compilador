@@ -1,12 +1,13 @@
 package Compilador;
 
-import AnalizadorSintactico.Lexer;
-import AnalizadorSintactico.Parser;
-import AnalizadorSintactico.sym;
 import java.io.FileReader;
 import java_cup.runtime.Symbol;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+
+import Sintactico.Lexer;
+import Sintactico.Parser;
+import Sintactico.sym;
 
 public class App {
 
@@ -57,23 +58,21 @@ public class App {
         System.out.println("==========================================");
     }
 
-    private static void ejecutarCompleto(String archivo) throws Exception{
+    private static void ejecutarCompleto(String archivo) throws Exception {
         boolean lexicoOK = ejecutarLexer(archivo);
-        boolean sintacticoOK = ejecutarParser(archivo);
+        boolean analisisOK = ejecutarParser(archivo);
 
         System.out.println("\n[RESUMEN FINAL]");
         System.out.println("------------------------------------------");
-        if (lexicoOK && sintacticoOK) {
-            System.out.println("El archivo es léxica y sintácticamente válido.");
-            System.out.println("Puede ser generado por la gramática actual.");
+
+        if (lexicoOK && analisisOK) {
+            System.out.println("El archivo es léxica, sintáctica y semánticamente válido.");
+            System.out.println("Puede pasar a la siguiente etapa de traducción.");
         } else if (lexicoOK) {
             System.out.println("Léxico: OK");
-            System.out.println("Sintáctico: contiene errores (ver arriba).");
-        } else if (sintacticoOK) {
-            System.out.println("Léxico: contiene errores (ver arriba).");
-            System.out.println("Sintáctico: OK");
+            System.out.println("Sintáctico/Semántico: contiene errores (ver arriba).");
         } else {
-            System.out.println("El archivo contiene errores léxicos y sintácticos (ver arriba).");
+            System.out.println("El archivo contiene errores léxicos y/o semánticos (ver arriba).");
         }
     }
 
@@ -106,11 +105,11 @@ public class App {
         return !hayErrores;
     }
 
-    private static boolean ejecutarParser(String archivo) throws Exception{
-        System.out.println("\n[2] ANALISIS SINTACTICO");
+    private static boolean ejecutarParser(String archivo) throws Exception {
+        System.out.println("\n[2] ANALISIS SINTACTICO + TABLA DE SÍMBOLOS");
         System.out.println("------------------------------------------");
 
-        Lexer lexer   = new Lexer(new FileReader(archivo));
+        Lexer lexer = new Lexer(new FileReader(archivo));
         Parser parser = new Parser(lexer);
 
         parser.parse();
@@ -119,13 +118,25 @@ public class App {
             System.out.println("--- Errores sintácticos encontrados ---");
             int i = 1;
             for (String e : parser.getErroresSintacticos()) {
-                System.out.println("  [" + i + "] " + e);
+                System.out.println("  [S" + i + "] " + e);
                 i++;
             }
         }
 
-        System.out.println("\nResultado sintáctico: " +
+        if (!parser.getErroresSemanticos().isEmpty()) {
+            System.out.println("--- Errores semánticos encontrados ---");
+            int i = 1;
+            for (String e : parser.getErroresSemanticos()) {
+                System.out.println("  [M" + i + "] " + e);
+                i++;
+            }
+        }
+
+        System.out.println(parser.getTablaSimbolos().toPrettyString());
+
+        System.out.println("\nResultado global: " +
                 (parser.tieneErrores() ? "incorrecto." : "correcto."));
+
         return !parser.tieneErrores();
     }
 
