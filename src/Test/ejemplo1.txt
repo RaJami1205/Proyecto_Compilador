@@ -1,0 +1,10 @@
+empty~__main__<||>|:
+    {- comentario
+       multilinea -}
+    
+    ¡¡comentario
+
+    [[
+    .
+    int~x!
+:|

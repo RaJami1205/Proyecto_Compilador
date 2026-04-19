@@ -1,4 +1,0 @@
-empty~__main__<||>|:
-    {- comentario sin cerrar
-    int~x!
-:|
