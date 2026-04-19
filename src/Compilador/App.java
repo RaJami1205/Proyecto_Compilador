@@ -27,7 +27,7 @@ public class App {
         }
 
         System.out.println("==========================================");
-        System.out.println("      PROYECTO 1 - ANALIZADOR");
+        System.out.println("            PROYECTO COMPILADOR           ");
         System.out.println("==========================================");
         System.out.println("Archivo: " + archivo);
         System.out.println("Modo: " + mode);
@@ -107,7 +107,7 @@ public class App {
 
     private static boolean ejecutarParser(String archivo) throws Exception {
         System.out.println("\n[2] ANALISIS SINTACTICO + TABLA DE SÍMBOLOS");
-        System.out.println("------------------------------------------");
+        System.out.println("---------------------------------------------");
 
         Lexer lexer = new Lexer(new FileReader(archivo));
         Parser parser = new Parser(lexer);
