@@ -1,0 +1,25 @@
+int~doble<|int~n|>|:
+    return~n+n!
+:|
+
+int~cuadruple<|int~x|>|:
+    return~doble<|doble<|x|>|>!
+:|
+
+bool~esCuatro<|int~v|>|:
+    return~equal<|v,4|>!
+:|
+
+empty~__main__<||>|:
+    int~a!
+    int~b!
+    bool~ok!
+
+    a<-doble<|5|>!
+    b<-cuadruple<|2|>!
+    ok<-esCuatro<|b|>!
+
+    cout~a!
+    cout~b!
+    cout~ok!
+:|

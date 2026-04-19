@@ -1,0 +1,30 @@
+empty~__main__<||>|:
+    int~x!
+    x<-10!
+
+    if~<|less_t<|x,20|>|>|:
+        cout~"dentro del if", x!
+        y<-!
+        psas
+    :|
+
+    do~|:
+        x<-x+1!
+        cout~"iterando", x!
+        int~!
+    :|~while~<|less_t<|x,30|>|>!
+
+    switch~<|x|>~|:
+        case~10~|:
+            cout~"diez"!
+        :|
+        case~~|:
+            break!
+        :|
+        default~|:
+            cout~"otro"!
+        :|
+    :|
+
+    cout~"fin", x!
+:|

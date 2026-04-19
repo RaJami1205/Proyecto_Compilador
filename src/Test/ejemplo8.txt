@@ -1,0 +1,25 @@
+int~doble<|int~n|>|:
+    return~n+n!
+:|
+
+float~promedio<|float~a,float~b|>|:
+    return~a+b/2.0!
+:|
+
+bool~esDiez<|int~x|>|:
+    return~equal<|x,10|>!
+:|
+
+empty~__main__<||>|:
+    int~x!
+    float~y!
+    bool~ok!
+
+    x<-doble<|5|>!
+    y<-promedio<|4.0,6.0|>!
+    ok<-esDiez<|10|>!
+
+    cout~x!
+    cout~y!
+    cout~ok!
+:|

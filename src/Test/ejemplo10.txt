@@ -1,0 +1,18 @@
+int~sumarDos<|int~n|>|:
+    return~n+2!
+:|
+
+bool~esSeis<|int~x|>|:
+    return~equal<|sumarDos<|x|>,6|>!
+:|
+
+empty~__main__<||>|:
+    int~v!
+    bool~r!
+
+    v<-sumarDos<|4|>!
+    r<-esSeis<|4|>!
+
+    cout~v!
+    cout~r!
+:|

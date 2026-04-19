@@ -1,0 +1,50 @@
+empty~__main__<||>|:
+    int~x!
+    float~y<-3.14!
+    bool~flag<-true!
+
+    x<-10!
+    y<-2.5.!
+    z<-20!
+
+    [[][]]
+    ????
+    psas
+    x<-!
+    <-10!
+    int~!
+    float~a<<3,2><- |: |:1,2:| , |:3,4:| :|!
+    int~m<<2,2>><- |: |:1,2:|, |:3,@:| :|!
+
+    if~<|less_t<|x,|>|>|:
+        cout~"hola", x!
+    :|
+
+    if~<|true|>
+        cout~"sin bloque"!
+
+    do~|:
+        x<-x+1!
+        y<-!
+    :|~while~<|equal<|x,10|>|>
+
+    switch~<|x|>~|:
+        case~10~|:
+            cout~"diez"!
+        :|
+        case~~|:
+            break!
+        :|
+        default~|:
+            cout~"default"!
+    :|
+
+    cout~"texto", , x!
+    cin~!
+    return~!
+    break
+
+    nombre_suelto
+    x<-10
+    ??? final ???
+:|
