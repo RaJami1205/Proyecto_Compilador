@@ -1,9 +1,9 @@
-package AnalizadorSintactico;
+package Sintactico;
 
 import java_cup.runtime.Symbol;
 import java.util.ArrayList;
 import java.util.List;
-import TablaSimbolos.*;
+import Semantico.*;
 
 parser code {:
     private final List<String> erroresSintacticos = new ArrayList<>();
@@ -284,6 +284,8 @@ non terminal DataType return_type, data_type, non_array_type;
 non terminal ParameterInfo parameter;
 non terminal DeclTailInfo int_decl_tail, float_decl_tail, other_decl_tail;
 non terminal Boolean array_init_opt;
+non terminal block_body;
+non terminal block_enter;
 
 start with program;
 
@@ -363,24 +365,16 @@ parameter ::= data_type:t TILDE IDENTIFIER:id
               {: RESULT = new ParameterInfo(id, t, idleft, idright); :}
               ;
 
-block ::= BLOCK_OPEN
-          {:
-              entrarBloqueAnonimo();
-          :}
-          block_items
-          BLOCK_CLOSE
-          {:
-              salirScope();
-          :}
-        | BLOCK_OPEN
-          {:
-              entrarBloqueAnonimo();
-          :}
-          error
-          BLOCK_CLOSE
-          {:
-              salirScope();
-          :}
+block ::= BLOCK_OPEN block_enter block_body BLOCK_CLOSE
+          {: salirScope(); :}
+        ;
+
+block_enter ::= 
+          {: entrarBloqueAnonimo(); :}
+        ;
+
+block_body ::= block_items
+             | error
         ;
 
 block_items ::= block_item block_items

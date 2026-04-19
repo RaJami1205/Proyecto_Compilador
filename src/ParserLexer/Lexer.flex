@@ -1,4 +1,4 @@
-package AnalizadorSintactico;
+package Sintactico;
 
 import java_cup.runtime.Symbol;
 
