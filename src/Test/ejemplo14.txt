@@ -1,0 +1,13 @@
+int~sumar<|int~a,int~b|>|:
+    int~r!
+    r<-a+b!
+    return~r!
+:|
+
+empty~__main__<||>|:
+    int~x!
+    int~x!
+    y<-10!
+    x<-sumar<|2,3|>!
+    cout~x!
+:|
