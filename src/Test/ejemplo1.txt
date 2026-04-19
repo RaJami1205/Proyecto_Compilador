@@ -1,8 +1,8 @@
 empty~__main__<||>|:
     {- comentario
-       multilinea -}
+       multilinea error -}
     
-    ¡¡comentario
+    ¡comentario unilinea error
 
     [[
     .

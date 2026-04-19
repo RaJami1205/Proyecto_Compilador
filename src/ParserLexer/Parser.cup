@@ -1,37 +1,128 @@
 package AnalizadorSintactico;
 
 import java_cup.runtime.Symbol;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 parser code {:
-    private java.util.List<String> erroresSintacticos = new java.util.ArrayList<>();
-    private boolean hayErrores = false;
+    private final List<String> erroresSintacticos = new ArrayList<>();
+
+    private Symbol ultimoTokenLeido = null;
+    private Symbol tokenAnterior = null;
+
+    public List<String> getErroresSintacticos() {
+        return erroresSintacticos;
+    }
+
+    public boolean tieneErrores() {
+        return !erroresSintacticos.isEmpty();
+    }
+
+    @Override
+    public Symbol scan() throws Exception {
+        tokenAnterior = ultimoTokenLeido;
+        ultimoTokenLeido = super.scan();
+        return ultimoTokenLeido;
+    }
+
+    private String nombreToken(Symbol tok) {
+        if (tok == null) return "EOF";
+        try {
+            return sym.terminalNames[tok.sym];
+        } catch (Exception e) {
+            return "SYM(" + tok.sym + ")";
+        }
+    }
+
+    private String lexemaToken(Symbol tok) {
+        if (tok == null) return "<EOF>";
+        return tok.value != null ? tok.value.toString() : nombreToken(tok);
+    }
+
+    private String posicion(Symbol tok) {
+        if (tok == null) return "línea ?, columna ?";
+        return "línea " + tok.left + ", columna " + tok.right;
+    }
+
+    private boolean esInicioDeSentenciaOExpresion(Symbol tok) {
+        if (tok == null) return false;
+
+        switch (tok.sym) {
+            case sym.IDENTIFIER:
+            case sym.INTEGER_LITERAL:
+            case sym.FLOAT_LITERAL:
+            case sym.SCIENTIFIC_LITERAL:
+            case sym.FRACTION_LITERAL:
+            case sym.CHAR_LITERAL:
+            case sym.STRING_LITERAL:
+            case sym.TRUE:
+            case sym.FALSE:
+            case sym.PIPE_R:
+            case sym.INDEX_CLOSE:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private String sugerencia(Symbol actual, Symbol anterior) {
+        if (actual == null) {
+            return "Se alcanzó el final del archivo.";
+        }
+
+        if ((actual.sym == sym.BLOCK_CLOSE || actual.sym == sym.EOF) && esInicioDeSentenciaOExpresion(anterior)) {
+            return "Posible sentencia incompleta: probablemente faltó '!' antes de " +
+                   nombreToken(actual) + " (" + lexemaToken(actual) + ").";
+        }
+
+        if (actual.sym == sym.BLOCK_CLOSE) {
+            return "Se encontró el cierre de bloque ':|' en un punto donde la gramática esperaba otra construcción.";
+        }
+
+        if (actual.sym == sym.BANG) {
+            return "Se encontró '!' en una posición no válida.";
+        }
+
+        return "Revise la construcción inmediatamente anterior al token encontrado.";
+    }
+
+    private String construirMensajeError(Symbol actual) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Error sintáctico detectado en ")
+          .append(posicion(actual))
+          .append(". Token encontrado: ")
+          .append(nombreToken(actual))
+          .append(" (")
+          .append(lexemaToken(actual))
+          .append(").");
+
+        if (tokenAnterior != null) {
+            sb.append(" Contexto previo: ")
+              .append(nombreToken(tokenAnterior))
+              .append(" (")
+              .append(lexemaToken(tokenAnterior))
+              .append(") en ")
+              .append(posicion(tokenAnterior))
+              .append(".");
+        }
+
+        sb.append(" ").append(sugerencia(actual, tokenAnterior));
+
+        return sb.toString();
+    }
 
     @Override
     public void syntax_error(Symbol cur_token) {
-        hayErrores = true;
-        String lexema = (cur_token != null && cur_token.value != null)
-                ? cur_token.value.toString()
-                : "<sin-lexema>";
-
-        String msg =  "Error sintáctico en línea " + cur_token.left +
-                     ", columna " + cur_token.right +
-                     ". Token: " + sym.terminalNames[cur_token.sym] +
-                     " ('" + lexema + "')";
-        
-        erroresSintacticos.add(msg);
-        //System.err.println(msg);
+        erroresSintacticos.add(construirMensajeError(cur_token));
     }
 
     @Override
     public void unrecovered_syntax_error(Symbol cur_token) throws Exception {
-        //syntax_error(cur_token);
+        String mensaje = "Recuperación fallida. " + construirMensajeError(cur_token);
+        erroresSintacticos.add(mensaje);
+        done_parsing();
     }
-
-    public boolean tieneErrores() {return hayErrores;}
-    public java.util.List<String> getErroresSintacticos() {return erroresSintacticos;}
-
 :};
 
 terminal INT_T, FLOAT_T, BOOL_T, CHAR_T, STRING_T, SCIENTIFIC_T, FRAC_T, EMPTY_T;
@@ -109,10 +200,11 @@ parameter_tail ::= COMMA parameter parameter_tail
 
 parameter ::= data_type TILDE IDENTIFIER ;
 
-block ::= BLOCK_OPEN block_items BLOCK_CLOSE ;
+block ::= BLOCK_OPEN block_items BLOCK_CLOSE
+        | BLOCK_OPEN error BLOCK_CLOSE
+        ;
 
 block_items ::= block_item block_items
-              | error BLOCK_CLOSE
               | /* empty */
               ;
 
@@ -233,7 +325,9 @@ else_opt ::= ELSE TILDE block
 
 do_while_stmt ::= DO TILDE block TILDE WHILE TILDE PIPE_L condition PIPE_R BANG ;
 
-switch_stmt ::= SWITCH TILDE PIPE_L expression PIPE_R TILDE BLOCK_OPEN switch_body BLOCK_CLOSE ;
+switch_stmt ::= SWITCH TILDE PIPE_L expression PIPE_R TILDE BLOCK_OPEN switch_body BLOCK_CLOSE
+              | SWITCH TILDE PIPE_L expression PIPE_R TILDE BLOCK_OPEN error BLOCK_CLOSE
+              ;
 
 switch_body ::= case_list default_opt ;
 

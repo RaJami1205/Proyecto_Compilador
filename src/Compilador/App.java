@@ -117,7 +117,11 @@ public class App {
 
         if (!parser.getErroresSintacticos().isEmpty()) {
             System.out.println("--- Errores sintácticos encontrados ---");
-            parser.getErroresSintacticos().forEach(e -> System.out.println("  " + e));
+            int i = 1;
+            for (String e : parser.getErroresSintacticos()) {
+                System.out.println("  [" + i + "] " + e);
+                i++;
+            }
         }
 
         System.out.println("\nResultado sintáctico: " +
