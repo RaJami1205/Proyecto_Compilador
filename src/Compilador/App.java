@@ -135,9 +135,9 @@ public class App {
 
     private static void printUsage() {
         System.out.println("Uso:");
-        System.out.println("  java Compilador.TestCompilador <archivo>");
-        System.out.println("  java Compilador.TestCompilador lex <archivo>");
-        System.out.println("  java Compilador.TestCompilador parse <archivo>");
-        System.out.println("  java Compilador.TestCompilador all <archivo>");
+        System.out.println("  java Compilador.App <archivo>");
+        System.out.println("  java Compilador.App lex <archivo>");
+        System.out.println("  java Compilador.App parse <archivo>");
+        System.out.println("  java Compilador.App all <archivo>");
     }
 }
