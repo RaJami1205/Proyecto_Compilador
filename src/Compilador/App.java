@@ -9,8 +9,19 @@ import Sintactico.Lexer;
 import Sintactico.Parser;
 import Sintactico.sym;
 
+/**
+ * Clase principal de prueba del compilador.
+ * Permite ejecutar el análisis léxico, sintáctico y semántico
+ * sobre un archivo fuente del lenguaje definido.
+ */
 public class App {
 
+    /**
+     * Punto de entrada del programa.
+     * Acepta:
+     * - 1 argumento: ejecuta modo "all"
+     * - 2 argumentos: ejecuta el modo indicado ("lex", "parse", "all")
+     */
     public static void main(String[] args) {
         String mode;
         String archivo;
@@ -50,7 +61,7 @@ public class App {
                     break;
             }
         } catch (Exception e) {
-            System.out.println("\n[ERROR FcATAL]");
+            System.out.println("\n[ERROR FATAL]");
             System.out.println("No fue posible completar el análisis del archivo.");
             System.out.println("Detalle: " + e.getMessage());
         }
@@ -58,6 +69,12 @@ public class App {
         System.out.println("==========================================");
     }
 
+    /**
+     * Ejecuta el análisis completo:
+     * 1. Léxico
+     * 2. Sintáctico + semántico
+     * Luego imprime un resumen general.
+     */
     private static void ejecutarCompleto(String archivo) throws Exception {
         boolean lexicoOK = ejecutarLexer(archivo);
         boolean analisisOK = ejecutarParser(archivo);
@@ -76,7 +93,14 @@ public class App {
         }
     }
 
-    private static boolean ejecutarLexer(String archivo) throws Exception{
+    /**
+     * Ejecuta únicamente el análisis léxico.
+     * Recorre todos los tokens del archivo y muestra sus datos en consola.
+     * También imprime los errores léxicos acumulados por el lexer.
+     *
+     * @return true si no hubo errores léxicos, false en caso contrario
+     */
+    private static boolean ejecutarLexer(String archivo) throws Exception {
         System.out.println("\n[1] ANALISIS LÉXICO");
         System.out.println("------------------------------------------");
 
@@ -84,17 +108,17 @@ public class App {
         Symbol token;
         boolean hayErrores = false;
 
-        // next_token() ya no lanza excepción — simplemente imprime el error
-        // y retorna el siguiente token válido
+        // Se consumen todos los tokens válidos hasta EOF.
+        // El lexer acumula errores léxicos en lugar de detenerse al primero.
         while ((token = lexer.next_token()).sym != sym.EOF) {
             String tokenName = symToString(token.sym);
-            String lexema   = (token.value != null) ? token.value.toString() : lexer.yytext();
+            String lexema = (token.value != null) ? token.value.toString() : lexer.yytext();
 
             System.out.printf("Línea %-4d Col %-4d %-22s -> %s%n",
                     token.left, token.right, tokenName, lexema);
         }
 
-        // Consultar errores acumulados en el lexer
+        // Mostrar errores léxicos reportados durante el escaneo
         if (!lexer.getErroresLexicos().isEmpty()) {
             hayErrores = true;
             System.out.println("\n--- Errores léxicos encontrados ---");
@@ -105,6 +129,12 @@ public class App {
         return !hayErrores;
     }
 
+    /**
+     * Ejecuta el análisis sintáctico y semántico.
+     * El parser también construye la tabla de símbolos y la imprime al final.
+     *
+     * @return true si no hubo errores sintácticos ni semánticos, false en caso contrario
+     */
     private static boolean ejecutarParser(String archivo) throws Exception {
         System.out.println("\n[2] ANALISIS SINTACTICO + TABLA DE SÍMBOLOS");
         System.out.println("---------------------------------------------");
@@ -112,8 +142,10 @@ public class App {
         Lexer lexer = new Lexer(new FileReader(archivo));
         Parser parser = new Parser(lexer);
 
+        // Inicia el proceso de parsing
         parser.parse();
 
+        // Mostrar errores sintácticos si existen
         if (!parser.getErroresSintacticos().isEmpty()) {
             System.out.println("--- Errores sintácticos encontrados ---");
             int i = 1;
@@ -123,6 +155,7 @@ public class App {
             }
         }
 
+        // Mostrar errores semánticos si existen
         if (!parser.getErroresSemanticos().isEmpty()) {
             System.out.println("--- Errores semánticos encontrados ---");
             int i = 1;
@@ -132,6 +165,7 @@ public class App {
             }
         }
 
+        // Imprimir la tabla de símbolos generada durante el análisis
         System.out.println(parser.getTablaSimbolos().toPrettyString());
 
         System.out.println("\nResultado global: " +
@@ -140,6 +174,10 @@ public class App {
         return !parser.tieneErrores();
     }
 
+    /**
+     * Convierte el código numérico de un token al nombre declarado en sym.java.
+     * Esto hace la salida del lexer más legible.
+     */
     private static String symToString(int symCode) {
         try {
             return sym.terminalNames[symCode];
@@ -148,6 +186,9 @@ public class App {
         }
     }
 
+    /**
+     * Muestra la forma correcta de ejecutar la aplicación desde consola.
+     */
     private static void printUsage() {
         System.out.println("Uso:");
         System.out.println("  java Compilador.App <archivo>");
