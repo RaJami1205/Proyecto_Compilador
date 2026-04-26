@@ -49,6 +49,7 @@ public class ReporteCompilador {
 
             pw.println();
             
+            //  SECCIÓN 2: TABLA DE SÍMBOLOS
             pw.println("==========================================");
             pw.println(" SECCIÓN 2: TABLA DE SÍMBOLOS");
             pw.println("==========================================");
@@ -60,7 +61,46 @@ public class ReporteCompilador {
             }
 
             pw.println();
-            
+
+            //  SECCIÓN 3: ERRORES 
+            pw.println("==========================================");
+            pw.println(" SECCIÓN 3: ERRORES ENCONTRADOS");
+            pw.println("==========================================");
+
+            pw.println();
+            pw.println("--- Errores léxicos (" + erroresLexicos.size() + ") ---");
+            if (erroresLexicos.isEmpty()) {
+                pw.println("  Ninguno.");
+            } else {
+                erroresLexicos.forEach(e -> pw.println("  " + e));
+            }
+
+            pw.println();
+            pw.println("--- Errores sintácticos (" + erroresSintacticos.size() + ") ---");
+            if (erroresSintacticos.isEmpty()) {
+                pw.println("  Ninguno.");
+            } else {
+                erroresSintacticos.forEach(e -> pw.println("  " + e));
+            }
+
+            pw.println();
+
+             // ── SECCIÓN 4: RESULTADO ───────────────────────────
+            pw.println("==========================================");
+            pw.println(" SECCIÓN 4: RESULTADO");
+            pw.println("==========================================");
+            if (esValido) {
+                pw.println("El archivo fuente SÍ puede ser generado por la gramática.");
+            } else {
+                pw.println("El archivo fuente NO puede ser generado por la gramática.");
+                pw.println("Errores léxicos    : " + erroresLexicos.size());
+                pw.println("Errores sintácticos: " + erroresSintacticos.size());
+            }
+
+            pw.println();
+            pw.println("==========================================");
+            pw.println("           FIN DEL REPORTE");
+            pw.println("==========================================");
 
         }
 
