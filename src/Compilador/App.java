@@ -8,6 +8,9 @@ import java.io.InputStreamReader;
 import Sintactico.Lexer;
 import Sintactico.Parser;
 import Sintactico.sym;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Clase principal de prueba del compilador.
@@ -25,6 +28,7 @@ public class App {
     public static void main(String[] args) {
         String mode;
         String archivo;
+            
 
         if (args.length == 1) {
             mode = "all";

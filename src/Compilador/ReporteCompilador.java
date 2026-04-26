@@ -13,6 +13,7 @@ import java.io.*;
 import java.util.*;
 
 public class ReporteCompilador {
+
     public static void generarReporte(
             String archivoFuente,
             String archivoSalida,
@@ -21,6 +22,7 @@ public class ReporteCompilador {
             List<String> erroresLexicos,
             List<String> erroresSintacticos,
             boolean esValido
+
     ) throws IOException {
         try (PrintWriter pw = new PrintWriter(
                 new OutputStreamWriter(new FileOutputStream(archivoSalida), "UTF-8"))) {
@@ -46,6 +48,24 @@ public class ReporteCompilador {
             }
 
             pw.println();
+            
+            pw.println("==========================================");
+            pw.println(" SECCIÓN 2: TABLA DE SÍMBOLOS");
+            pw.println("==========================================");
+
+            if (tablaSimbolos == null) {
+                pw.println("  No disponible.");
+            } else {
+                pw.println(tablaSimbolos.toPrettyString());
+            }
+
+            pw.println();
+            
+
         }
+
+        
     }
+
+
 }
