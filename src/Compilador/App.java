@@ -51,7 +51,7 @@ public class App {
         try {
             switch (mode) {
                 case "lex":
-                    ejecutarLexer(archivo);
+                    //ejecutarLexer(archivo);
                     break;
                 case "parse":
                     ejecutarParser(archivo);
@@ -80,13 +80,37 @@ public class App {
      * Luego imprime un resumen general.
      */
     private static void ejecutarCompleto(String archivo) throws Exception {
-        boolean lexicoOK = ejecutarLexer(archivo);
+        String nombreBase = new File(archivo).getName().replaceAll("\\.[^.]+$", "");
+        new File("src/Reporte").mkdirs();
+        String archivoReporte = "src/Reporte/" + nombreBase + "_reporte.txt";
+        List<Symbol> tokens = new ArrayList<>(); // Acumular tokens durante el analisis
+
+        boolean lexicoOK = ejecutarLexer(archivo,tokens);
         boolean analisisOK = ejecutarParser(archivo);
+        
+        // Nueva instancia del parser
+        Lexer lexer2 = new Lexer(new FileReader(archivo));
+        Parser parser2 = new Parser(lexer2);
+        parser2.parse();
+
+        boolean esValido = lexicoOK && analisisOK;
+
+        ReporteCompilador.generarReporte(
+            archivo,
+            archivoReporte,
+            tokens,
+            parser2.getTablaSimbolos(),
+            lexer2.getErroresLexicos(),
+            parser2.getErroresSintacticos(),
+            esValido
+        );
+
+         System.out.println("\nReporte generado en: " + archivoReporte);
 
         System.out.println("\n[RESUMEN FINAL]");
         System.out.println("------------------------------------------");
 
-        if (lexicoOK && analisisOK) {
+        if (esValido) {
             System.out.println("El archivo es léxica, sintáctica y semánticamente válido.");
             System.out.println("Puede pasar a la siguiente etapa de traducción.");
         } else if (lexicoOK) {
@@ -104,7 +128,7 @@ public class App {
      *
      * @return true si no hubo errores léxicos, false en caso contrario
      */
-    private static boolean ejecutarLexer(String archivo) throws Exception {
+    private static boolean ejecutarLexer(String archivo, List<Symbol> tokens) throws Exception {
         System.out.println("\n[1] ANALISIS LÉXICO");
         System.out.println("------------------------------------------");
 
@@ -115,6 +139,10 @@ public class App {
         // Se consumen todos los tokens válidos hasta EOF.
         // El lexer acumula errores léxicos en lugar de detenerse al primero.
         while ((token = lexer.next_token()).sym != sym.EOF) {
+            if (token.value == null) {
+                    token.value = lexer.yytext();
+            }
+            tokens.add(token);
             String tokenName = symToString(token.sym);
             String lexema = (token.value != null) ? token.value.toString() : lexer.yytext();
 
