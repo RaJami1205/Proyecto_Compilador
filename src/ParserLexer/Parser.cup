@@ -34,6 +34,12 @@ parser code {:
         return tablaSimbolos;
     }
 
+    /**
+    * Convierte el código numérico de un token a su nombre legible.
+    *
+    * @param tok Token del cual se quiere obtener el nombre.
+    * @return Nombre del token, o "EOF" si el token es null.
+    */
     private String nombreToken(Symbol tok) {
         if (tok == null) return "EOF";
         try {
@@ -42,16 +48,39 @@ parser code {:
             return "SYM(" + tok.sym + ")";
         }
     }
-
+    
+    /**
+    * Retorna el lexema de un token. Si el token no tiene valor semántico,
+    * retorna su nombre como fallback.
+    *
+    * @param tok Token del cual se quiere obtener el lexema.
+    * @return Lexema del token, o su nombre si no tiene valor.
+    */
     private String lexemaToken(Symbol tok) {
         if (tok == null) return "<EOF>";
         return tok.value != null ? tok.value.toString() : nombreToken(tok);
     }
 
+    /**
+    * Registra un error semántico en la lista de errores.
+    *
+    * @param mensaje Descripción del error semántico encontrado.
+    */
     private void errorSemantico(String mensaje) {
         erroresSemanticos.add(mensaje);
     }
 
+    /**
+    * Registra una función o procedimiento en la tabla de símbolos global
+    * y abre un nuevo scope con su nombre.
+    * Si la función ya fue declarada, reporta un error semántico.
+    *
+    * @param name       Nombre de la función o procedimiento.
+    * @param returnType Tipo de retorno de la función.
+    * @param line       Línea de declaración en el archivo fuente.
+    * @param col        Columna de declaración en el archivo fuente.
+    * @param isMain     true si es el procedimiento principal __main__.
+    */
     private void declararFuncion(String name, DataType returnType, int line, int col, boolean isMain) {
         SymbolInfo info = new SymbolInfo(
                 name,
@@ -77,11 +106,21 @@ parser code {:
         tablaSimbolos.enterScope(name);
     }
 
+    /**
+    * Cierra el scope de la función actual y limpia la referencia a la función activa.
+    */
     private void cerrarFuncion() {
         currentFunction = null;
         tablaSimbolos.exitScope();
     }
 
+    /**
+    * Registra los parámetros de una función en el scope actual y los agrega
+    * a la firma de la función activa.
+    * Reporta error semántico si algún parámetro está redeclarado.
+    *
+    * @param params Lista de ParameterInfo con los parámetros a registrar.
+    */
     private void registrarParametros(ArrayList params) {
         if (params == null) return;
 
@@ -113,6 +152,16 @@ parser code {:
         }
     }
 
+    /**
+    * Registra un identificador (variable o arreglo) en el scope actual.
+    * Reporta error semántico si el identificador ya fue declarado en el mismo scope.
+    *
+    * @param name Nombre del identificador.
+    * @param type Tipo de dato del identificador.
+    * @param tail Información del sufijo de la declaración (escalar o arreglo, inicializado o no).
+    * @param line Línea de declaración en el archivo fuente.
+    * @param col  Columna de declaración en el archivo fuente.
+    */
     private void declararIdentificador(String name, DataType type, DeclTailInfo tail, int line, int col) {
         SymbolKind kind = tail.isArray() ? SymbolKind.ARRAY : SymbolKind.VARIABLE;
 
@@ -142,6 +191,15 @@ parser code {:
         }
     }
 
+    /**
+    * Verifica que un identificador usado en el código haya sido declarado previamente
+    * y que sea una variable o parámetro (no función ni arreglo sin índices).
+    * Marca el símbolo como usado si la verificación es exitosa.
+    *
+    * @param name Nombre del identificador referenciado.
+    * @param line Línea de uso en el archivo fuente.
+    * @param col  Columna de uso en el archivo fuente.
+    */
     private void usarVariable(String name, int line, int col) {
         SymbolInfo s = tablaSimbolos.lookup(name);
 
@@ -172,6 +230,15 @@ parser code {:
         s.setUsed(true);
     }
 
+    /**
+    * Verifica que un arreglo usado en el código haya sido declarado previamente
+    * y que efectivamente sea de tipo ARRAY.
+    * Marca el símbolo como usado si la verificación es exitosa.
+    *
+    * @param name Nombre del arreglo referenciado.
+    * @param line Línea de uso en el archivo fuente.
+    * @param col  Columna de uso en el archivo fuente.
+    */
     private void usarArreglo(String name, int line, int col) {
         SymbolInfo s = tablaSimbolos.lookup(name);
 
@@ -194,6 +261,15 @@ parser code {:
         s.setUsed(true);
     }
 
+    /**
+    * Verifica que una función o procedimiento llamado en el código haya sido
+    * declarado previamente en el scope global.
+    * Marca el símbolo como usado si la verificación es exitosa.
+    *
+    * @param name Nombre de la función referenciada.
+    * @param line Línea de uso en el archivo fuente.
+    * @param col  Columna de uso en el archivo fuente.
+    */
     private void usarFuncion(String name, int line, int col) {
         SymbolInfo s = tablaSimbolos.lookupGlobal(name);
 
@@ -216,15 +292,28 @@ parser code {:
         s.setUsed(true);
     }
 
+    /**
+    * Abre un nuevo scope anónimo para un bloque de código sin nombre de función.
+    * El nombre del scope se genera automáticamente como "block_N".
+    */
     private void entrarBloqueAnonimo() {
         blockCounter++;
         tablaSimbolos.enterScope("block_" + blockCounter);
     }
 
+    /**
+    * Cierra el scope actualmente activo retirándolo de la pila.
+    */
     private void salirScope() {
         tablaSimbolos.exitScope();
     }
 
+    /**
+    * Maneja los errores sintácticos detectados por CUP durante el parsing.
+    * Registra el error con línea, columna y token encontrado, y continúa el análisis.
+    *
+    * @param cur_token Token donde se detectó el error sintáctico.
+    */
     @Override
     public void syntax_error(Symbol cur_token) {
         String mensaje =
@@ -235,6 +324,13 @@ parser code {:
         erroresSintacticos.add(mensaje);
     }
 
+    /**
+    * Maneja los errores sintácticos de los que CUP no pudo recuperarse.
+    * Registra el error y detiene el parsing con done_parsing().
+    *
+    * @param cur_token Token donde falló la recuperación.
+    * @throws Exception Si no fue posible continuar el análisis.
+    */
     @Override
     public void unrecovered_syntax_error(Symbol cur_token) throws Exception {
         String mensaje =
@@ -244,6 +340,20 @@ parser code {:
                 " (" + lexemaToken(cur_token) + ")";
         erroresSintacticos.add(mensaje);
         done_parsing();
+    }
+
+    /**
+    * Reporta un error de recuperación a nivel de frase.
+    * Se usa cuando el parser detecta un error específico y predecible,
+    * como la falta del terminador '!' al final de una sentencia.
+    *
+    * @param mensaje Descripción del error detectado.
+    * @param linea   Línea exacta donde ocurrió el error.
+    */
+    private void reportarErrorFrase(String mensaje, int linea) {
+        String msg = "Error de frase en línea " + linea + ": " + mensaje;
+        erroresSintacticos.add(msg);
+        System.out.println(msg);
     }
 :};
 
