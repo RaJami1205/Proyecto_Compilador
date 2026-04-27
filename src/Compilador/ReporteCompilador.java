@@ -14,6 +14,21 @@ import java.util.*;
 
 public class ReporteCompilador {
 
+    /**
+     * genera un reporte completo del analisis del compilador en un archivo TXT
+     * el reporte incluye los tokens encontrados, la tabla de simbolos,
+     * los errores lexicos y sintacticos, y el resultado final del analisis.
+     *
+     * @param archivoFuente      ruta del archivo fuente 
+     * @param archivoSalida      ruta del archivo.txt donde se escribira el reporte
+     * @param tokens             lista de tokens reconocidos durante el análisis léxico
+     * @param tablaSimbolos      tabla de símbolos construida durante el análisis sintáctico
+     * @param erroresLexicos     lista de errores léxicos encontrados durante el escaneo
+     * @param erroresSintacticos lista de errores sintacticos 
+     * @param esValido           true si el archivo fuente no contiene errores léxicos
+     *                           ni sintácticos
+     * @throws IOException 
+     */
     public static void generarReporte(
             String archivoFuente,
             String archivoSalida,
