@@ -111,7 +111,7 @@ public class App {
         System.out.println("------------------------------------------");
 
         if (esValido) {
-            System.out.println("El archivo es léxica, sintáctica y semánticamente válido.");
+            System.out.println("El archivo es léxica y sintácticamente válido.");
             System.out.println("Puede pasar a la siguiente etapa de traducción.");
         } else if (lexicoOK) {
             System.out.println("Léxico: OK");
@@ -186,7 +186,8 @@ public class App {
                 i++;
             }
         }
-
+        
+        /* 
         // Mostrar errores semánticos si existen
         if (!parser.getErroresSemanticos().isEmpty()) {
             System.out.println("--- Errores semánticos encontrados ---");
@@ -196,7 +197,8 @@ public class App {
                 i++;
             }
         }
-
+            */
+           
         // Imprimir la tabla de símbolos generada durante el análisis
         System.out.println(parser.getTablaSimbolos().toPrettyString());
 
