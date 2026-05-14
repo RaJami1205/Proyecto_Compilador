@@ -1,0 +1,185 @@
+REPORTE DE ANÁLISIS - COMPILADOR
+
+Archivo fuente : src/Test/ejemplo8.txt
+
+==========================================
+ SECCIÓN 1: TOKENS ENCONTRADOS
+==========================================
+Línea  Col    Token                     Lexema                   
+-----------------------------------------------------------------
+1      1      INT_T                     int                      
+1      4      TILDE                     ~                        
+1      5      IDENTIFIER                doble                    
+1      10     PIPE_L                    <|                       
+1      12     INT_T                     int                      
+1      15     TILDE                     ~                        
+1      16     IDENTIFIER                n                        
+1      17     PIPE_R                    |>                       
+1      19     BLOCK_OPEN                |:                       
+2      5      RETURN                    return                   
+2      11     TILDE                     ~                        
+2      12     IDENTIFIER                n                        
+2      13     PLUS                      +                        
+2      14     IDENTIFIER                n                        
+2      15     BANG                      !                        
+3      1      BLOCK_CLOSE               :|                       
+5      1      FLOAT_T                   float                    
+5      6      TILDE                     ~                        
+5      7      IDENTIFIER                promedio                 
+5      15     PIPE_L                    <|                       
+5      17     FLOAT_T                   float                    
+5      22     TILDE                     ~                        
+5      23     IDENTIFIER                a                        
+5      24     COMMA                     ,                        
+5      25     FLOAT_T                   float                    
+5      30     TILDE                     ~                        
+5      31     IDENTIFIER                b                        
+5      32     PIPE_R                    |>                       
+5      34     BLOCK_OPEN                |:                       
+6      5      RETURN                    return                   
+6      11     TILDE                     ~                        
+6      12     IDENTIFIER                a                        
+6      13     PLUS                      +                        
+6      14     IDENTIFIER                b                        
+6      15     DIV                       /                        
+6      16     FLOAT_LITERAL             2.0                      
+6      19     BANG                      !                        
+7      1      BLOCK_CLOSE               :|                       
+9      1      BOOL_T                    bool                     
+9      5      TILDE                     ~                        
+9      6      IDENTIFIER                esDiez                   
+9      12     PIPE_L                    <|                       
+9      14     INT_T                     int                      
+9      17     TILDE                     ~                        
+9      18     IDENTIFIER                x                        
+9      19     PIPE_R                    |>                       
+9      21     BLOCK_OPEN                |:                       
+10     5      RETURN                    return                   
+10     11     TILDE                     ~                        
+10     12     EQUAL                     equal                    
+10     17     PIPE_L                    <|                       
+10     19     IDENTIFIER                x                        
+10     20     COMMA                     ,                        
+10     21     INTEGER_LITERAL           10                       
+10     23     PIPE_R                    |>                       
+10     25     BANG                      !                        
+11     1      BLOCK_CLOSE               :|                       
+13     1      EMPTY_T                   empty                    
+13     6      TILDE                     ~                        
+13     7      MAIN                      __main__                 
+13     15     PIPE_L                    <|                       
+13     17     PIPE_R                    |>                       
+13     19     BLOCK_OPEN                |:                       
+14     5      INT_T                     int                      
+14     8      TILDE                     ~                        
+14     9      IDENTIFIER                x                        
+14     10     BANG                      !                        
+15     5      FLOAT_T                   float                    
+15     10     TILDE                     ~                        
+15     11     IDENTIFIER                y                        
+15     12     BANG                      !                        
+16     5      BOOL_T                    bool                     
+16     9      TILDE                     ~                        
+16     10     IDENTIFIER                ok                       
+16     12     BANG                      !                        
+18     5      IDENTIFIER                x                        
+18     6      ASSIGN                    <-                       
+18     8      IDENTIFIER                doble                    
+18     13     PIPE_L                    <|                       
+18     15     INTEGER_LITERAL           5                        
+18     16     PIPE_R                    |>                       
+18     18     BANG                      !                        
+19     5      IDENTIFIER                y                        
+19     6      ASSIGN                    <-                       
+19     8      IDENTIFIER                promedio                 
+19     16     PIPE_L                    <|                       
+19     18     FLOAT_LITERAL             4.0                      
+19     21     COMMA                     ,                        
+19     22     FLOAT_LITERAL             6.0                      
+19     25     PIPE_R                    |>                       
+19     27     BANG                      !                        
+20     5      IDENTIFIER                ok                       
+20     7      ASSIGN                    <-                       
+20     9      IDENTIFIER                esDiez                   
+20     15     PIPE_L                    <|                       
+20     17     INTEGER_LITERAL           10                       
+20     19     PIPE_R                    |>                       
+20     21     BANG                      !                        
+22     5      COUT                      cout                     
+22     9      TILDE                     ~                        
+22     10     IDENTIFIER                x                        
+22     11     BANG                      !                        
+23     5      COUT                      cout                     
+23     9      TILDE                     ~                        
+23     10     IDENTIFIER                y                        
+23     11     BANG                      !                        
+24     5      COUT                      cout                     
+24     9      TILDE                     ~                        
+24     10     IDENTIFIER                ok                       
+24     12     BANG                      !                        
+25     1      BLOCK_CLOSE               :|                       
+
+==========================================
+ SECCIÓN 2: TABLA DE SÍMBOLOS
+==========================================
+
+================ TABLA DE SÍMBOLOS ================
+
+Scope: global | nivel: 0
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+doble           FUNCTION     INT          global       1       5       false      INT n                -        true    
+promedio        FUNCTION     FLOAT        global       5       7       false      FLOAT a, FLOAT b     -        true    
+esDiez          FUNCTION     BOOL         global       9       6       false      INT x                -        true    
+__main__        MAIN         EMPTY        global       13      7       false      -                    -        false   
+
+Scope: doble | nivel: 1 | padre: global
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+n               PARAMETER    INT          doble        1       16      true       -                    -        true    
+
+Scope: block_1 | nivel: 2 | padre: doble
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: promedio | nivel: 1 | padre: global
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+a               PARAMETER    FLOAT        promedio     5       23      true       -                    -        true    
+b               PARAMETER    FLOAT        promedio     5       31      true       -                    -        true    
+
+Scope: block_2 | nivel: 2 | padre: promedio
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: esDiez | nivel: 1 | padre: global
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+x               PARAMETER    INT          esDiez       9       18      true       -                    -        true    
+
+Scope: block_3 | nivel: 2 | padre: esDiez
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: __main__ | nivel: 1 | padre: global
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_4 | nivel: 2 | padre: __main__
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+x               VARIABLE     INT          block_4      14      9       false      -                    -        true    
+y               VARIABLE     FLOAT        block_4      15      11      false      -                    -        true    
+ok              VARIABLE     BOOL         block_4      16      10      false      -                    -        true    
+===================================================
+
+
+==========================================
+ SECCIÓN 3: ERRORES ENCONTRADOS
+==========================================
+
+--- Errores léxicos (0) ---
+  Ninguno.
+
+--- Errores sintácticos (0) ---
+  Ninguno.
+
+==========================================
+ SECCIÓN 4: RESULTADO
+==========================================
+El archivo fuente SÍ puede ser generado por la gramática.
+
+==========================================
+           FIN DEL REPORTE
+==========================================

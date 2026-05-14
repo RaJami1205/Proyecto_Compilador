@@ -1,0 +1,164 @@
+REPORTE DE ANÁLISIS - COMPILADOR
+
+Archivo fuente : src/Test/ejemplo7.txt
+
+==========================================
+ SECCIÓN 1: TOKENS ENCONTRADOS
+==========================================
+Línea  Col    Token                     Lexema                   
+-----------------------------------------------------------------
+1      1      EMPTY_T                   empty                    
+1      6      TILDE                     ~                        
+1      7      MAIN                      __main__                 
+1      15     PIPE_L                    <|                       
+1      17     PIPE_R                    |>                       
+1      19     BLOCK_OPEN                |:                       
+2      5      INT_T                     int                      
+2      8      TILDE                     ~                        
+2      9      IDENTIFIER                x                        
+2      10     BANG                      !                        
+3      5      IDENTIFIER                x                        
+3      6      ASSIGN                    <-                       
+3      8      INTEGER_LITERAL           10                       
+3      10     BANG                      !                        
+5      5      IF                        if                       
+5      7      TILDE                     ~                        
+5      8      PIPE_L                    <|                       
+5      10     LESS_T                    less_t                   
+5      16     PIPE_L                    <|                       
+5      18     IDENTIFIER                x                        
+5      19     COMMA                     ,                        
+5      20     INTEGER_LITERAL           20                       
+5      22     PIPE_R                    |>                       
+5      24     PIPE_R                    |>                       
+5      26     BLOCK_OPEN                |:                       
+6      9      COUT                      cout                     
+6      13     TILDE                     ~                        
+6      14     STRING_LITERAL            "dentro del if"          
+6      29     COMMA                     ,                        
+6      31     IDENTIFIER                x                        
+6      32     BANG                      !                        
+7      9      IDENTIFIER                y                        
+7      10     ASSIGN                    <-                       
+7      12     BANG                      !                        
+8      9      IDENTIFIER                psas                     
+9      5      BLOCK_CLOSE               :|                       
+11     5      DO                        do                       
+11     7      TILDE                     ~                        
+11     8      BLOCK_OPEN                |:                       
+12     9      IDENTIFIER                x                        
+12     10     ASSIGN                    <-                       
+12     12     IDENTIFIER                x                        
+12     13     PLUS                      +                        
+12     14     INTEGER_LITERAL           1                        
+12     15     BANG                      !                        
+13     9      COUT                      cout                     
+13     13     TILDE                     ~                        
+13     14     STRING_LITERAL            "iterando"               
+13     24     COMMA                     ,                        
+13     26     IDENTIFIER                x                        
+13     27     BANG                      !                        
+14     9      INT_T                     int                      
+14     12     TILDE                     ~                        
+14     13     BANG                      !                        
+15     5      BLOCK_CLOSE               :|                       
+15     7      TILDE                     ~                        
+15     8      WHILE                     while                    
+15     13     TILDE                     ~                        
+15     14     PIPE_L                    <|                       
+15     16     LESS_T                    less_t                   
+15     22     PIPE_L                    <|                       
+15     24     IDENTIFIER                x                        
+15     25     COMMA                     ,                        
+15     26     INTEGER_LITERAL           30                       
+15     28     PIPE_R                    |>                       
+15     30     PIPE_R                    |>                       
+15     32     BANG                      !                        
+17     5      SWITCH                    switch                   
+17     11     TILDE                     ~                        
+17     12     PIPE_L                    <|                       
+17     14     IDENTIFIER                x                        
+17     15     PIPE_R                    |>                       
+17     17     TILDE                     ~                        
+17     18     BLOCK_OPEN                |:                       
+18     9      CASE                      case                     
+18     13     TILDE                     ~                        
+18     14     INTEGER_LITERAL           10                       
+18     16     TILDE                     ~                        
+18     17     BLOCK_OPEN                |:                       
+19     13     COUT                      cout                     
+19     17     TILDE                     ~                        
+19     18     STRING_LITERAL            "diez"                   
+19     24     BANG                      !                        
+20     9      BLOCK_CLOSE               :|                       
+21     9      CASE                      case                     
+21     13     TILDE                     ~                        
+21     14     TILDE                     ~                        
+21     15     BLOCK_OPEN                |:                       
+22     13     BREAK                     break                    
+22     18     BANG                      !                        
+23     9      BLOCK_CLOSE               :|                       
+24     9      DEFAULT                   default                  
+24     16     TILDE                     ~                        
+24     17     BLOCK_OPEN                |:                       
+25     13     COUT                      cout                     
+25     17     TILDE                     ~                        
+25     18     STRING_LITERAL            "otro"                   
+25     24     BANG                      !                        
+26     9      BLOCK_CLOSE               :|                       
+27     5      BLOCK_CLOSE               :|                       
+29     5      COUT                      cout                     
+29     9      TILDE                     ~                        
+29     10     STRING_LITERAL            "fin"                    
+29     15     COMMA                     ,                        
+29     17     IDENTIFIER                x                        
+29     18     BANG                      !                        
+30     1      BLOCK_CLOSE               :|                       
+
+==========================================
+ SECCIÓN 2: TABLA DE SÍMBOLOS
+==========================================
+
+================ TABLA DE SÍMBOLOS ================
+
+Scope: global | nivel: 0
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+__main__        MAIN         EMPTY        global       1       7       false      -                    -        false   
+
+Scope: __main__ | nivel: 1 | padre: global
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_1 | nivel: 2 | padre: __main__
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+x               VARIABLE     INT          block_1      2       9       false      -                    -        true    
+
+Scope: block_2 | nivel: 3 | padre: block_1
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_3 | nivel: 4 | padre: block_2
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+===================================================
+
+
+==========================================
+ SECCIÓN 3: ERRORES ENCONTRADOS
+==========================================
+
+--- Errores léxicos (0) ---
+  Ninguno.
+
+--- Errores sintácticos (3) ---
+  Error sintáctico en línea 7, columna 12. Token encontrado: BANG (BANG)
+  Error sintáctico en línea 14, columna 13. Token encontrado: BANG (BANG)
+  Error sintáctico en línea 21, columna 14. Token encontrado: TILDE (TILDE)
+
+==========================================
+ SECCIÓN 4: RESULTADO
+==========================================
+El archivo fuente NO puede ser generado por la gramática.
+Errores léxicos    : 0
+Errores sintácticos: 3
+
+==========================================
+           FIN DEL REPORTE
+==========================================
