@@ -34,6 +34,14 @@ parser code {:
         return tablaSimbolos;
     }
 
+    private String nombreFuncionActual() {
+    return currentFunction != null ? currentFunction.getLexeme() : "<desconocida>";
+    }
+
+    private int lineaFuncionActual() {
+        return currentFunction != null ? currentFunction.getLine() : -1;
+    }
+
     /**
     * Convierte el código numérico de un token a su nombre legible.
     *
@@ -367,6 +375,7 @@ terminal String IDENTIFIER, INTEGER_LITERAL, FLOAT_LITERAL, SCIENTIFIC_LITERAL, 
 
 non terminal program;
 non terminal function_prefix, function_suffix, function_decl, main_procedure;
+non terminal function_decl_rest, main_rest;
 
 non terminal java.util.ArrayList parameter_block_opt, parameter_list, parameter_tail;
 
@@ -413,26 +422,46 @@ function_decl ::= return_type:rt TILDE IDENTIFIER:id
                   {:
                       declararFuncion(id, rt, idleft, idright, false);
                   :}
-                  PIPE_L parameter_block_opt:params PIPE_R
-                  {:
-                      registrarParametros(params);
-                  :}
-                  block
+                  function_decl_rest
                   {:
                       cerrarFuncion();
                   :}
                   ;
 
+function_decl_rest ::= PIPE_L parameter_block_opt:params PIPE_R
+                       {:
+                           registrarParametros(params);
+                       :}
+                       block
+                     | error PIPE_R block
+                       {:
+                           reportarErrorFrase(
+                               "Encabezado inválido de la función '" + nombreFuncionActual() +
+                               "'. Se continuó desde el bloque de la función.",
+                               lineaFuncionActual()
+                           );
+                       :}
+                     ;
+
 main_procedure ::= EMPTY_T TILDE MAIN:m
                    {:
                        declararFuncion("__main__", DataType.EMPTY, mleft, mright, true);
                    :}
-                   PIPE_L PIPE_R
-                   block
+                   main_rest
                    {:
                        cerrarFuncion();
                    :}
                    ;
+
+main_rest ::= PIPE_L PIPE_R block
+            | error PIPE_R block
+              {:
+                  reportarErrorFrase(
+                      "Encabezado inválido de __main__. Se continuó desde el bloque principal.",
+                      lineaFuncionActual()
+                  );
+              :}
+            ;
 
 return_type ::= INT_T    {: RESULT = DataType.INT; :}
               | FLOAT_T  {: RESULT = DataType.FLOAT; :}
