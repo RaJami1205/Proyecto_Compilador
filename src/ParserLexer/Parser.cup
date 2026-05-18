@@ -662,6 +662,7 @@ output_value ::= IDENTIFIER:id
                  :}
                | array_access
                | numeric_literal
+               | MINUS numeric_literal
                | bool_literal
                | CHAR_LITERAL
                | STRING_LITERAL
@@ -709,7 +710,9 @@ expression ::= bool_expr
              | char_expr
              ;
 
-condition ::= bool_expr ;
+condition ::= bool_expr
+            | reference_expr
+            ;
 
 reference_expr ::= IDENTIFIER:id
                    {:
@@ -750,7 +753,7 @@ rel_expr ::= EQUAL PIPE_L eq_operand COMMA eq_operand PIPE_R
            ;
 
 eq_operand ::= num_expr
-             | bool_literal
+             | bool_expr
              ;
 
 bool_literal ::= TRUE
@@ -794,6 +797,8 @@ incrementable ::= IDENTIFIER ;
 
 negative_literal ::= INTEGER_LITERAL
                    | FLOAT_LITERAL
+                   | SCIENTIFIC_LITERAL
+                   | FRACTION_LITERAL
                    ;
 
 numeric_literal ::= INTEGER_LITERAL

@@ -35,11 +35,11 @@ import java.util.ArrayList;
 
 LineTerminator = \r|\n|\r\n
 WhiteSpace     = {LineTerminator}|[ \t\f]+
-Identifier     = [a-zA-Z][a-zA-Z0-9_]*
+Identifier     = [_a-zA-Z][_a-zA-Z0-9_]*
 IntegerLiteral = 0|[1-9][0-9]*
 FloatLiteral   = (0|[1-9][0-9]*)\.[0-9]+
 ScientificLiteral = (0|[1-9][0-9]*)e[1-9][0-9]*
-FractionLiteral   = (0|[1-9][0-9]*)\/[1-9][0-9]*
+FractionLiteral   = (0|[1-9][0-9]*)\/\/[1-9][0-9]*
 CharLiteral    = \'([^\\'\r\n]|\\[btnrf\\'\"])\' 
 StringLiteral  = \"([^\\\"\r\n]|\\[btnrf\\'\"])*\"
 
