@@ -1,0 +1,330 @@
+REPORTE DE ANÁLISIS - COMPILADOR
+
+Archivo fuente : src/Test/revision_2.txt
+
+==========================================
+ SECCIÓN 1: TOKENS ENCONTRADOS
+==========================================
+Línea  Col    Token                     Lexema                   
+-----------------------------------------------------------------
+2      2      EMPTY_T                   empty                    
+2      7      TILDE                     ~                        
+2      8      MAIN                      __main__                 
+2      17     PIPE_L                    <|                       
+2      21     PIPE_R                    |>                       
+2      26     BLOCK_OPEN                |:                       
+3      2      IDENTIFIER                _arr_                    
+3      7      INDEX_OPEN                <<                       
+3      9      INTEGER_LITERAL           67                       
+3      11     PLUS                      +                        
+3      12     IDENTIFIER                _i_                      
+3      15     COMMA                     ,                        
+3      16     INTEGER_LITERAL           67                       
+3      18     PLUS                      +                        
+3      19     IDENTIFIER                _i_                      
+3      22     INDEX_CLOSE               >>                       
+3      25     ASSIGN                    <-                       
+3      28     MINUS                     -                        
+3      29     FLOAT_LITERAL             0.01                     
+3      34     PLUS                      +                        
+3      36     SCIENTIFIC_LITERAL        10e10                    
+3      42     TIMES                     *                        
+3      44     INTEGER_LITERAL           25                       
+3      46     BANG                      !                        
+4      2      BOOL_T                    bool                     
+4      6      TILDE                     ~                        
+4      7      IDENTIFIER                _b1_                     
+4      11     BANG                      !                        
+5      2      STRING_T                  string                   
+5      8      TILDE                     ~                        
+5      9      IDENTIFIER                _s1_                     
+5      13     BANG                      !                        
+6      2      CIN                       cin                      
+6      5      TILDE                     ~                        
+6      6      IDENTIFIER                _s1_                     
+6      11     BANG                      !                        
+7      2      COUT                      cout                     
+7      6      TILDE                     ~                        
+7      7      IDENTIFIER                _b1_                     
+7      12     BANG                      !                        
+8      2      COUT                      cout                     
+8      6      TILDE                     ~                        
+8      7      TRUE                      true                     
+8      11     BANG                      !                        
+9      2      COUT                      cout                     
+9      6      TILDE                     ~                        
+9      8      MINUS                     -                        
+9      9      FRACTION_LITERAL          6//7                     
+9      14     BANG                      !                        
+10     2      RETURN                    return                   
+10     8      TILDE                     ~                        
+10     9      INTEGER_LITERAL           20                       
+10     11     BANG                      !                        
+11     2      RETURN                    return                   
+11     8      TILDE                     ~                        
+11     9      INTEGER_LITERAL           1                        
+11     10     PLUS                      +                        
+11     11     IDENTIFIER                _f_                      
+11     15     PIPE_L                    <|                       
+11     19     PIPE_R                    |>                       
+11     22     BANG                      !                        
+12     2      BLOCK_CLOSE               :|                       
+14     1      FLOAT_T                   float                    
+14     6      TILDE                     ~                        
+14     7      IDENTIFIER                _mi_                     
+14     13     PIPE_L                    <|                       
+14     16     INT_T                     int                      
+14     19     TILDE                     ~                        
+14     20     IDENTIFIER                _dif_                    
+14     25     COMMA                     ,                        
+14     27     CHAR_T                    char                     
+14     31     TILDE                     ~                        
+14     32     IDENTIFIER                _otra_                   
+14     39     PIPE_R                    |>                       
+14     42     BLOCK_OPEN                |:                       
+15     2      INT_T                     int                      
+15     5      TILDE                     ~                        
+15     6      IDENTIFIER                _otra_                   
+15     12     BANG                      !                        
+16     2      STRING_T                  string                   
+16     8      TILDE                     ~                        
+16     9      IDENTIFIER                _str_                    
+16     14     ASSIGN                    <-                       
+16     16     STRING_LITERAL            "Hola $~&¡¡:|$& |>  mundo"
+16     42     BANG                      !                        
+17     2      DO                        do                       
+17     4      TILDE                     ~                        
+18     3      BLOCK_OPEN                |:                       
+19     3      DO                        do                       
+19     5      TILDE                     ~                        
+20     4      BLOCK_OPEN                |:                       
+21     4      IDENTIFIER                _var_                    
+21     10     ASSIGN                    <-                       
+21     13     IDENTIFIER                _var_                    
+21     19     MINUS                     -                        
+21     21     INTEGER_LITERAL           1                        
+21     22     BANG                      !                        
+22     4      BLOCK_CLOSE               :|                       
+22     7      TILDE                     ~                        
+22     8      WHILE                     while                    
+22     13     TILDE                     ~                        
+22     15     PIPE_L                    <|                       
+22     18     TRUE                      true                     
+22     23     AND                       @                        
+22     25     NOT                       $                        
+22     27     PIPE_L                    <|                       
+22     30     PIPE_L                    <|                       
+22     32     GREATHER_TE               greather_te              
+22     43     PIPE_L                    <|                       
+22     45     INTEGER_LITERAL           12                       
+22     48     COMMA                     ,                        
+22     50     PIPE_L                    <|                       
+22     53     INTEGER_LITERAL           34                       
+22     55     PLUS                      +                        
+22     56     INTEGER_LITERAL           35                       
+22     59     PIPE_R                    |>                       
+22     61     PIPE_R                    |>                       
+22     63     PIPE_R                    |>                       
+22     67     PIPE_R                    |>                       
+22     70     PIPE_R                    |>                       
+22     72     BANG                      !                        
+24     3      IF                        if                       
+24     5      TILDE                     ~                        
+24     7      PIPE_L                    <|                       
+24     10     TRUE                      true                     
+24     15     PIPE_R                    |>                       
+25     4      BLOCK_OPEN                |:                       
+26     4      COUT                      cout                     
+26     8      TILDE                     ~                        
+26     9      STRING_LITERAL            "entra al if"            
+26     23     BANG                      !                        
+27     4      BLOCK_CLOSE               :|                       
+28     3      IF                        if                       
+28     5      TILDE                     ~                        
+28     6      PIPE_L                    <|                       
+28     9      TRUE                      true                     
+28     14     PIPE_R                    |>                       
+29     4      BLOCK_OPEN                |:                       
+30     4      COUT                      cout                     
+30     8      TILDE                     ~                        
+30     10     IDENTIFIER                _var_                    
+30     16     BANG                      !                        
+31     4      BLOCK_CLOSE               :|                       
+32     3      ELSE                      else                     
+32     7      TILDE                     ~                        
+33     4      BLOCK_OPEN                |:                       
+34     4      SWITCH                    switch                   
+34     10     TILDE                     ~                        
+34     11     PIPE_L                    <|                       
+34     14     IDENTIFIER                _otra_                   
+34     21     PIPE_R                    |>                       
+34     23     TILDE                     ~                        
+35     5      BLOCK_OPEN                |:                       
+36     5      CASE                      case                     
+36     9      TILDE                     ~                        
+36     10     INTEGER_LITERAL           1                        
+36     11     TILDE                     ~                        
+36     13     BLOCK_OPEN                |:                       
+37     6      COUT                      cout                     
+37     10     TILDE                     ~                        
+37     12     STRING_LITERAL            "!¡¡"                    
+37     18     BANG                      !                        
+38     6      BLOCK_CLOSE               :|                       
+40     5      CASE                      case                     
+40     9      TILDE                     ~                        
+40     10     CHAR_LITERAL              '2'                      
+40     13     TILDE                     ~                        
+40     15     BLOCK_OPEN                |:                       
+41     6      IDENTIFIER                _otra_                   
+41     13     ASSIGN                    <-                       
+41     16     INTEGER_LITERAL           10                       
+41     18     BANG                      !                        
+42     6      BREAK                     break                    
+42     11     BANG                      !                        
+43     6      BLOCK_CLOSE               :|                       
+44     5      DEFAULT                   default                  
+44     12     TILDE                     ~                        
+44     14     BLOCK_OPEN                |:                       
+45     6      IDENTIFIER                _otra_                   
+45     13     ASSIGN                    <-                       
+45     16     MINUS                     -                        
+45     17     FLOAT_LITERAL             10.5                     
+45     22     TIMES                     *                        
+45     24     MINUS                     -                        
+45     25     FLOAT_LITERAL             1.9                      
+45     28     BANG                      !                        
+46     6      BLOCK_CLOSE               :|                       
+47     5      BLOCK_CLOSE               :|                       
+48     4      SWITCH                    switch                   
+48     10     TILDE                     ~                        
+48     11     PIPE_L                    <|                       
+48     14     IDENTIFIER                _otra2_                  
+48     22     PIPE_R                    |>                       
+48     24     TILDE                     ~                        
+49     5      BLOCK_OPEN                |:                       
+50     5      CASE                      case                     
+50     9      TILDE                     ~                        
+50     10     INTEGER_LITERAL           10                       
+50     12     TILDE                     ~                        
+50     14     BLOCK_OPEN                |:                       
+51     6      COUT                      cout                     
+51     10     TILDE                     ~                        
+51     12     STRING_LITERAL            "un case"                
+51     22     BANG                      !                        
+52     6      BLOCK_CLOSE               :|                       
+53     5      BLOCK_CLOSE               :|                       
+54     4      BLOCK_CLOSE               :|                       
+55     3      BLOCK_CLOSE               :|                       
+55     6      TILDE                     ~                        
+55     7      WHILE                     while                    
+55     12     TILDE                     ~                        
+55     14     PIPE_L                    <|                       
+55     17     NOT                       $                        
+55     19     PIPE_L                    <|                       
+55     21     FALSE                     false                    
+55     26     PIPE_R                    |>                       
+55     30     PIPE_R                    |>                       
+55     33     BANG                      !                        
+56     2      RETURN                    return                   
+56     8      TILDE                     ~                        
+56     9      INTEGER_LITERAL           1                        
+56     10     BANG                      !                        
+57     3      BLOCK_CLOSE               :|                       
+59     2      BOOL_T                    bool                     
+59     6      TILDE                     ~                        
+59     7      IDENTIFIER                _miOtraFun_              
+59     20     PIPE_L                    <|                       
+59     24     PIPE_R                    |>                       
+59     29     BLOCK_OPEN                |:                       
+60     2      RETURN                    return                   
+60     8      TILDE                     ~                        
+60     9      MINUS                     -                        
+60     10     FLOAT_LITERAL             5.6                      
+60     13     BANG                      !                        
+61     3      BLOCK_CLOSE               :|                       
+
+==========================================
+ SECCIÓN 2: TABLA DE SÍMBOLOS
+==========================================
+
+================ TABLA DE SÍMBOLOS ================
+
+Scope: global | nivel: 0
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+__main__        MAIN         EMPTY        global       2       8       false      -                    -        false   
+_mi_            FUNCTION     FLOAT        global       14      7       false      INT _dif_, CHAR _otra_ -        false   
+_miOtraFun_     FUNCTION     BOOL         global       59      7       false      -                    -        false   
+
+Scope: __main__ | nivel: 1 | padre: global
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_1 | nivel: 2 | padre: __main__
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+_b1_            VARIABLE     BOOL         block_1      4       7       false      -                    -        true    
+_s1_            VARIABLE     STRING       block_1      5       9       false      -                    -        true    
+
+Scope: _mi_ | nivel: 1 | padre: global
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+_dif_           PARAMETER    INT          _mi_         14      20      true       -                    -        false   
+_otra_          PARAMETER    CHAR         _mi_         14      32      true       -                    -        false   
+
+Scope: block_2 | nivel: 2 | padre: _mi_
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+_otra_          VARIABLE     INT          block_2      15      6       false      -                    -        true    
+_str_           VARIABLE     STRING       block_2      16      9       true       -                    -        false   
+
+Scope: block_3 | nivel: 3 | padre: block_2
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_4 | nivel: 4 | padre: block_3
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_5 | nivel: 4 | padre: block_3
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_6 | nivel: 4 | padre: block_3
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_7 | nivel: 4 | padre: block_3
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_8 | nivel: 5 | padre: block_7
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_9 | nivel: 5 | padre: block_7
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_10 | nivel: 5 | padre: block_7
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_11 | nivel: 5 | padre: block_7
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: _miOtraFun_ | nivel: 1 | padre: global
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+
+Scope: block_12 | nivel: 2 | padre: _miOtraFun_
+Lexema          Clase        Tipo         Scope        Línea   Col     Init       Parámetros           Dims     Usado   
+===================================================
+
+
+==========================================
+ SECCIÓN 3: ERRORES ENCONTRADOS
+==========================================
+
+--- Errores léxicos (0) ---
+  Ninguno.
+
+--- Errores sintácticos (0) ---
+  Ninguno.
+
+==========================================
+ SECCIÓN 4: RESULTADO
+==========================================
+El archivo fuente NO puede ser generado por la gramática.
+Errores léxicos    : 0
+Errores sintácticos: 0
+
+==========================================
+           FIN DEL REPORTE
+==========================================

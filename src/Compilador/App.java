@@ -2,12 +2,11 @@ package Compilador;
 
 import java.io.FileReader;
 import java_cup.runtime.Symbol;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
 
 import Sintactico.Lexer;
 import Sintactico.Parser;
 import Sintactico.sym;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +18,9 @@ import java.util.List;
  */
 public class App {
 
+    /** Carpeta única de salida del proyecto */
+    private static final String OUTPUT_DIR = "src/Output";
+
     /**
      * Punto de entrada del programa.
      * Acepta:
@@ -28,7 +30,6 @@ public class App {
     public static void main(String[] args) {
         String mode;
         String archivo;
-            
 
         if (args.length == 1) {
             mode = "all";
@@ -49,9 +50,12 @@ public class App {
         System.out.println("------------------------------------------");
 
         try {
+            // Antes de cualquier ejecución, se limpia la carpeta de salida
+            prepararCarpetaOutput();
+
             switch (mode) {
                 case "lex":
-                    //ejecutarLexer(archivo);
+                    // ejecutarLexer(archivo, new ArrayList<>());
                     break;
                 case "parse":
                     ejecutarParser(archivo);
@@ -74,6 +78,45 @@ public class App {
     }
 
     /**
+     * Crea la carpeta Output si no existe.
+     * Si ya existe, elimina todo su contenido para evitar acumulación
+     * de reportes y futuras salidas del compilador.
+     */
+    private static void prepararCarpetaOutput() throws Exception {
+        File outputDir = new File(OUTPUT_DIR);
+
+        if (!outputDir.exists()) {
+            outputDir.mkdirs();
+            return;
+        }
+
+        File[] archivos = outputDir.listFiles();
+        if (archivos != null) {
+            for (File archivo : archivos) {
+                eliminarRecursivo(archivo);
+            }
+        }
+    }
+
+    /**
+     * Elimina archivos y subcarpetas de forma recursiva.
+     */
+    private static void eliminarRecursivo(File archivo) throws Exception {
+        if (archivo.isDirectory()) {
+            File[] hijos = archivo.listFiles();
+            if (hijos != null) {
+                for (File hijo : hijos) {
+                    eliminarRecursivo(hijo);
+                }
+            }
+        }
+
+        if (!archivo.delete()) {
+            throw new Exception("No se pudo eliminar: " + archivo.getAbsolutePath());
+        }
+    }
+
+    /**
      * Ejecuta el análisis completo:
      * 1. Léxico
      * 2. Sintáctico + semántico
@@ -81,14 +124,14 @@ public class App {
      */
     private static void ejecutarCompleto(String archivo) throws Exception {
         String nombreBase = new File(archivo).getName().replaceAll("\\.[^.]+$", "");
-        new File("src/Reporte").mkdirs();
-        String archivoReporte = "src/Reporte/" + nombreBase + "_reporte.txt";
-        List<Symbol> tokens = new ArrayList<>(); // Acumular tokens durante el analisis
+        String archivoReporte = OUTPUT_DIR + "/" + nombreBase + "_reporte.txt";
 
-        boolean lexicoOK = ejecutarLexer(archivo,tokens);
+        List<Symbol> tokens = new ArrayList<>();
+
+        boolean lexicoOK = ejecutarLexer(archivo, tokens);
         boolean analisisOK = ejecutarParser(archivo);
-        
-        // Nueva instancia del parser
+
+        // Nueva instancia del parser para reconstruir los datos del reporte
         Lexer lexer2 = new Lexer(new FileReader(archivo));
         Parser parser2 = new Parser(lexer2);
         parser2.parse();
@@ -96,16 +139,16 @@ public class App {
         boolean esValido = lexicoOK && analisisOK;
 
         ReporteCompilador.generarReporte(
-            archivo,
-            archivoReporte,
-            tokens,
-            parser2.getTablaSimbolos(),
-            lexer2.getErroresLexicos(),
-            parser2.getErroresSintacticos(),
-            esValido
+                archivo,
+                archivoReporte,
+                tokens,
+                parser2.getTablaSimbolos(),
+                lexer2.getErroresLexicos(),
+                parser2.getErroresSintacticos(),
+                esValido
         );
 
-         System.out.println("\nReporte generado en: " + archivoReporte);
+        System.out.println("\nReporte generado en: " + archivoReporte);
 
         System.out.println("\n[RESUMEN FINAL]");
         System.out.println("------------------------------------------");
@@ -136,13 +179,12 @@ public class App {
         Symbol token;
         boolean hayErrores = false;
 
-        // Se consumen todos los tokens válidos hasta EOF.
-        // El lexer acumula errores léxicos en lugar de detenerse al primero.
         while ((token = lexer.next_token()).sym != sym.EOF) {
             if (token.value == null) {
-                    token.value = lexer.yytext();
+                token.value = lexer.yytext();
             }
             tokens.add(token);
+
             String tokenName = symToString(token.sym);
             String lexema = (token.value != null) ? token.value.toString() : lexer.yytext();
 
@@ -150,7 +192,6 @@ public class App {
                     token.left, token.right, tokenName, lexema);
         }
 
-        // Mostrar errores léxicos reportados durante el escaneo
         if (!lexer.getErroresLexicos().isEmpty()) {
             hayErrores = true;
             System.out.println("\n--- Errores léxicos encontrados ---");
@@ -174,10 +215,8 @@ public class App {
         Lexer lexer = new Lexer(new FileReader(archivo));
         Parser parser = new Parser(lexer);
 
-        // Inicia el proceso de parsing
         parser.parse();
 
-        // Mostrar errores sintácticos si existen
         if (!parser.getErroresSintacticos().isEmpty()) {
             System.out.println("--- Errores sintácticos encontrados ---");
             int i = 1;
@@ -186,20 +225,7 @@ public class App {
                 i++;
             }
         }
-        
-        /* 
-        // Mostrar errores semánticos si existen
-        if (!parser.getErroresSemanticos().isEmpty()) {
-            System.out.println("--- Errores semánticos encontrados ---");
-            int i = 1;
-            for (String e : parser.getErroresSemanticos()) {
-                System.out.println("  [M" + i + "] " + e);
-                i++;
-            }
-        }
-            */
-           
-        // Imprimir la tabla de símbolos generada durante el análisis
+
         System.out.println(parser.getTablaSimbolos().toPrettyString());
 
         System.out.println("\nResultado global: " +
@@ -210,7 +236,6 @@ public class App {
 
     /**
      * Convierte el código numérico de un token al nombre declarado en sym.java.
-     * Esto hace la salida del lexer más legible.
      */
     private static String symToString(int symCode) {
         try {
