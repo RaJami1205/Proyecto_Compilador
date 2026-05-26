@@ -226,6 +226,15 @@ public class App {
             }
         }
 
+        if (!parser.getErroresSemanticos().isEmpty()) {
+            System.out.println("--- Errores semánticos encontrados ---");
+            int i = 1;
+            for (String e : parser.getErroresSemanticos()) {
+                System.out.println("  [M" + i + "] " + e);
+                i++;
+        }
+}
+
         System.out.println(parser.getTablaSimbolos().toPrettyString());
 
         System.out.println("\nResultado global: " +
