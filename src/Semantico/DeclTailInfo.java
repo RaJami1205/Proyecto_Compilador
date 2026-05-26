@@ -6,6 +6,7 @@ public class DeclTailInfo {
     private final boolean initialized;
     private final Integer dim1;
     private final Integer dim2;
+    private final DataType exprType;
 
      /**
      * Constructor privado. Use los métodos de fábrica scalar() o array().
@@ -15,11 +16,12 @@ public class DeclTailInfo {
      * @param dim1        Primera dimensión del arreglo, null si es escalar.
      * @param dim2        Segunda dimensión del arreglo, null si es escalar.
      */
-    private DeclTailInfo(boolean array, boolean initialized, Integer dim1, Integer dim2) {
+     private DeclTailInfo(boolean array, boolean initialized, Integer dim1, Integer dim2, DataType exprType) {
         this.array = array;
         this.initialized = initialized;
         this.dim1 = dim1;
         this.dim2 = dim2;
+        this.exprType = exprType;
     }
     
     /**
@@ -28,9 +30,10 @@ public class DeclTailInfo {
      * @param initialized true si la variable fue inicializada en su declaración.
      * @return DeclTailInfo configurado como variable escalar.
      */
-    public static DeclTailInfo scalar(boolean initialized) {
-        return new DeclTailInfo(false, initialized, null, null);
+    public static DeclTailInfo scalar(boolean initialized, DataType exprType) {
+        return new DeclTailInfo(false, initialized, null, null, exprType);
     }
+
 
      /**
      * Crea un DeclTailInfo para un arreglo bidimensional.
@@ -40,8 +43,8 @@ public class DeclTailInfo {
      * @param initialized true si el arreglo fue inicializado con una matriz literal.
      * @return DeclTailInfo configurado como arreglo.
      */
-    public static DeclTailInfo array(Integer dim1, Integer dim2, boolean initialized) {
-        return new DeclTailInfo(true, initialized, dim1, dim2);
+     public static DeclTailInfo array(Integer dim1, Integer dim2, boolean initialized) {
+        return new DeclTailInfo(true, initialized, dim1, dim2, null);
     }
 
      /**
@@ -74,5 +77,9 @@ public class DeclTailInfo {
      */
     public Integer getDim2() {
         return dim2;
+    }
+    
+    public DataType getExprType() {
+        return exprType;
     }
 }

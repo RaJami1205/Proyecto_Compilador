@@ -363,6 +363,19 @@ parser code {:
         erroresSintacticos.add(msg);
         System.out.println(msg);
     }
+
+    private boolean tiposCompatibles(DataType destino, DataType origen) {
+        if (destino == origen) return true;
+        // INT y SCIENTIFIC son compatibles entre si
+        if (destino == DataType.INT && origen == DataType.SCIENTIFIC) return true;
+        if (destino == DataType.SCIENTIFIC && origen == DataType.INT) return true;
+        // INT y FRAC son compatibles
+        if (destino == DataType.INT && origen == DataType.FRAC) return true;
+        if (destino == DataType.FRAC && origen == DataType.INT) return true;
+        if (destino == DataType.FLOAT && origen == DataType.INT) return true;
+            return false;
+    }
+
 :};
 
 terminal INT_T, FLOAT_T, BOOL_T, CHAR_T, STRING_T, SCIENTIFIC_T, FRAC_T, EMPTY_T;
@@ -383,21 +396,27 @@ non terminal block, block_items, block_item;
 non terminal statement;
 
 non terminal declaration_stmt, typed_decl;
-non terminal assign_stmt, lvalue, array_access;
+non terminal assign_stmt;
+
+non terminal DataType lvalue;
+
+non terminal DataType array_access;
 
 non terminal matrix_literal, row_list, row_tail, row_literal, cell_list, cell_tail;
-non terminal call_expr, argument_block_opt, argument_list, argument_tail;
+non terminal argument_block_opt, argument_list, argument_tail;
+
+non terminal DataType call_expr;
 
 non terminal read_stmt, read_target, write_stmt, output_list, output_tail, output_value;
 non terminal if_stmt, else_opt, do_while_stmt, switch_stmt, switch_body, case_list, case_section, default_opt, case_constant;
 non terminal return_stmt, break_stmt;
 
-non terminal expression, condition;
-non terminal reference_expr;
+non terminal DataType expression, condition;
+non terminal DataType reference_expr;
 
-non terminal bool_expr, bool_chain, bool_chain_tail, conj_term, conj_term_tail, bool_unit, bool_atom, rel_expr, eq_operand, bool_literal;
-non terminal num_expr, sum_stage, sum_tail, prod_stage, prod_tail, power_stage, prefix_stage, num_atom, incrementable, negative_literal, numeric_literal;
-non terminal string_expr, char_expr;
+non terminal DataType bool_expr, bool_chain, bool_chain_tail, conj_term, conj_term_tail, bool_unit, bool_atom, rel_expr, eq_operand, bool_literal;
+non terminal DataType num_expr, sum_stage, sum_tail, prod_stage, prod_tail, power_stage, prefix_stage, num_atom, incrementable, negative_literal, numeric_literal;
+non terminal DataType string_expr, char_expr;
 
 non terminal DataType return_type, data_type, non_array_type;
 non terminal ParameterInfo parameter;
@@ -544,14 +563,35 @@ declaration_stmt ::= typed_decl ;
 typed_decl ::= INT_T TILDE IDENTIFIER:id int_decl_tail:t
                {:
                    declararIdentificador(id, DataType.INT, t, idleft, idright);
+                   if (t.getExprType() != null && !tiposCompatibles(DataType.INT, t.getExprType())) {
+                       errorSemantico(
+                           "Error semántico: tipos incompatibles en declaración de '" + id +
+                           "', se esperaba INT pero se encontró " + t.getExprType() +
+                           " en línea " + idleft
+                       );
+                   }
                :}
              | FLOAT_T TILDE IDENTIFIER:id float_decl_tail:t
                {:
                    declararIdentificador(id, DataType.FLOAT, t, idleft, idright);
+                   if (t.getExprType() != null && !tiposCompatibles(DataType.FLOAT, t.getExprType())) {
+                       errorSemantico(
+                           "Error semántico: tipos incompatibles en declaración de '" + id +
+                           "', se esperaba FLOAT pero se encontró " + t.getExprType() +
+                           " en línea " + idleft
+                       );
+                   }
                :}
-             | non_array_type:t TILDE IDENTIFIER:id other_decl_tail:tail
+             | non_array_type:tp TILDE IDENTIFIER:id other_decl_tail:t
                {:
-                   declararIdentificador(id, t, tail, idleft, idright);
+                   declararIdentificador(id, tp, t, idleft, idright);
+                   if (t.getExprType() != null && !tiposCompatibles(tp, t.getExprType())) {
+                       errorSemantico(
+                           "Error semántico: tipos incompatibles en declaración de '" + id +
+                           "', se esperaba " + tp + " pero se encontró " + t.getExprType() +
+                           " en línea " + idleft
+                       );
+                   }
                :}
              ;
 
@@ -562,26 +602,26 @@ non_array_type ::= BOOL_T        {: RESULT = DataType.BOOL; :}
                  | FRAC_T        {: RESULT = DataType.FRAC; :}
                  ;
 
-other_decl_tail ::= ASSIGN expression
-                    {: RESULT = DeclTailInfo.scalar(true); :}
+other_decl_tail ::= ASSIGN expression:e
+                    {: RESULT = DeclTailInfo.scalar(true, e); :}
                   | /* empty */
-                    {: RESULT = DeclTailInfo.scalar(false); :}
+                    {: RESULT = DeclTailInfo.scalar(false, null); :}
                   ;
 
-int_decl_tail ::= ASSIGN expression
-                  {: RESULT = DeclTailInfo.scalar(true); :}
+int_decl_tail ::= ASSIGN expression:e
+                  {: RESULT = DeclTailInfo.scalar(true, e); :}
                 | INDEX_OPEN INTEGER_LITERAL:d1 COMMA INTEGER_LITERAL:d2 INDEX_CLOSE array_init_opt:init
                   {: RESULT = DeclTailInfo.array(Integer.parseInt(d1), Integer.parseInt(d2), init.booleanValue()); :}
                 | /* empty */
-                  {: RESULT = DeclTailInfo.scalar(false); :}
+                  {: RESULT = DeclTailInfo.scalar(false, null); :}
                 ;
 
-float_decl_tail ::= ASSIGN expression
-                    {: RESULT = DeclTailInfo.scalar(true); :}
+float_decl_tail ::= ASSIGN expression:e
+                    {: RESULT = DeclTailInfo.scalar(true,e); :}
                   | INDEX_OPEN INTEGER_LITERAL:d1 COMMA INTEGER_LITERAL:d2 INDEX_CLOSE array_init_opt:init
                     {: RESULT = DeclTailInfo.array(Integer.parseInt(d1), Integer.parseInt(d2), init.booleanValue()); :}
                   | /* empty */
-                    {: RESULT = DeclTailInfo.scalar(false); :}
+                    {: RESULT = DeclTailInfo.scalar(false,null); :}
                   ;
 
 array_init_opt ::= ASSIGN matrix_literal
@@ -590,13 +630,29 @@ array_init_opt ::= ASSIGN matrix_literal
                    {: RESULT = Boolean.FALSE; :}
                  ;
 
-assign_stmt ::= lvalue ASSIGN expression ;
+assign_stmt ::= lvalue:lv ASSIGN expression:e
+                {:
+                    System.out.println("DEBUG assign: lv=" + lv + " e=" + e);
+                    if (lv != null && e != null && lv != DataType.UNKNOWN && e != DataType.UNKNOWN) {
+                        if (!tiposCompatibles(lv, e)) {
+                            errorSemantico(
+                                "Error semántico: tipos incompatibles en asignación, " +
+                                "se esperaba " + lv + " pero se encontró " + e +
+                                " en línea " + lvleft
+                            );
+                        }
+                    }
+                :}
+              ;
 
 lvalue ::= IDENTIFIER:id
            {:
                usarVariable(id, idleft, idright);
+               SymbolInfo s = tablaSimbolos.lookup(id);
+               RESULT = s != null ? s.getType() : DataType.UNKNOWN;
            :}
-         | array_access
+         | array_access:a
+           {: RESULT = a; :}
          ;
 
 array_access ::= IDENTIFIER:id
@@ -604,6 +660,10 @@ array_access ::= IDENTIFIER:id
                      usarArreglo(id, idleft, idright);
                  :}
                  INDEX_OPEN num_expr COMMA num_expr INDEX_CLOSE
+                 {:
+                     SymbolInfo s = tablaSimbolos.lookup(id);
+                     RESULT = s != null ? s.getType() : DataType.UNKNOWN;
+                 :}
                  ;
 
 matrix_literal ::= BLOCK_OPEN row_list BLOCK_CLOSE ;
@@ -627,6 +687,10 @@ call_expr ::= IDENTIFIER:id
                   usarFuncion(id, idleft, idright);
               :}
               PIPE_L argument_block_opt PIPE_R
+              {:
+                  SymbolInfo s = tablaSimbolos.lookupGlobal(id);
+                  RESULT = s != null ? s.getType() : DataType.UNKNOWN;
+              :}
               ;
 
 argument_block_opt ::= argument_list
@@ -704,109 +768,160 @@ return_stmt ::= RETURN TILDE expression ;
 
 break_stmt ::= BREAK ;
 
-expression ::= bool_expr
-             | num_expr
-             | string_expr
-             | char_expr
+expression ::= bool_expr:b  {: RESULT = b; :}
+             | num_expr:n   {: RESULT = n; :}
+             | string_expr:s {: RESULT = s; :}
+             | char_expr:c  {: RESULT = c; :}
              ;
 
-condition ::= bool_expr
-            | reference_expr
+condition ::= bool_expr:b    {: RESULT = b; :}
+            | reference_expr:r {: RESULT = r; :}
             ;
 
 reference_expr ::= IDENTIFIER:id
                    {:
                        usarVariable(id, idleft, idright);
+                       SymbolInfo s = tablaSimbolos.lookup(id);
+                       RESULT = s != null ? s.getType() : DataType.UNKNOWN;
                    :}
-                 | call_expr
+                 | call_expr:c
+                   {: RESULT = c; :}
                  ;
 
-bool_expr ::= bool_chain ;
-
-bool_chain ::= conj_term bool_chain_tail ;
-
-bool_chain_tail ::= OR conj_term bool_chain_tail
-                  | /* empty */
-                  ;
-
-conj_term ::= bool_unit conj_term_tail ;
-
-conj_term_tail ::= AND bool_unit conj_term_tail
-                 | /* empty */
-                 ;
-
-bool_unit ::= NOT bool_unit
-            | bool_atom
+bool_expr ::= bool_chain:b
+              {: RESULT = b; :}
             ;
 
-bool_atom ::= bool_literal
-            | rel_expr
-            | PIPE_L bool_expr PIPE_R
+bool_chain ::= conj_term:c bool_chain_tail:t
+               {: RESULT = DataType.BOOL; :}
+             ;
+
+bool_chain_tail ::= OR conj_term:c bool_chain_tail:t
+                    {: RESULT = DataType.BOOL; :}
+                  | /* empty */
+                    {: RESULT = null; :}
+                  ;
+
+conj_term ::= bool_unit:b conj_term_tail:t
+              {: RESULT = DataType.BOOL; :}
+            ;
+
+conj_term_tail ::= AND bool_unit:b conj_term_tail:t
+                   {: RESULT = DataType.BOOL; :}
+                 | /* empty */
+                   {: RESULT = null; :}
+                 ;
+
+bool_unit ::= NOT bool_unit:b
+              {: RESULT = b; :}
+            | bool_atom:a
+              {: RESULT = a; :}
+            ;
+
+bool_atom ::= bool_literal:b
+              {: RESULT = b; :}
+            | rel_expr:r
+              {: RESULT = r; :}
+            | PIPE_L bool_expr:e PIPE_R
+              {: RESULT = e; :}
             ;
 
 rel_expr ::= EQUAL PIPE_L eq_operand COMMA eq_operand PIPE_R
+             {: RESULT = DataType.BOOL; :}
            | N_EQUAL PIPE_L eq_operand COMMA eq_operand PIPE_R
+             {: RESULT = DataType.BOOL; :}
            | LESS_T PIPE_L num_expr COMMA num_expr PIPE_R
+             {: RESULT = DataType.BOOL; :}
            | LESS_TE PIPE_L num_expr COMMA num_expr PIPE_R
+             {: RESULT = DataType.BOOL; :}
            | GREATHER_T PIPE_L num_expr COMMA num_expr PIPE_R
+             {: RESULT = DataType.BOOL; :}
            | GREATHER_TE PIPE_L num_expr COMMA num_expr PIPE_R
+             {: RESULT = DataType.BOOL; :}
            ;
 
-eq_operand ::= num_expr
-             | bool_expr
+eq_operand ::= num_expr:n  {: RESULT = n; :}
+             | bool_expr:b {: RESULT = b; :}
              ;
 
-bool_literal ::= TRUE
-               | FALSE
+bool_literal ::= TRUE  {: RESULT = DataType.BOOL; :}
+               | FALSE {: RESULT = DataType.BOOL; :}
                ;
 
-num_expr ::= sum_stage ;
-
-sum_stage ::= prod_stage sum_tail ;
-
-sum_tail ::= PLUS prod_stage sum_tail
-           | MINUS prod_stage sum_tail
-           | /* empty */
+num_expr ::= sum_stage:s
+             {: RESULT = s; :}
            ;
 
-prod_stage ::= power_stage prod_tail ;
-
-prod_tail ::= TIMES power_stage prod_tail
-            | DIV power_stage prod_tail
-            | MOD power_stage prod_tail
-            | /* empty */
+sum_stage ::= prod_stage:p sum_tail:t
+              {: RESULT = t != null ? t : p; :}
             ;
 
-power_stage ::= prefix_stage POW power_stage
-              | prefix_stage
+sum_tail ::= PLUS prod_stage:p sum_tail:t
+             {: RESULT = t != null ? t : p; :}
+           | MINUS prod_stage:p sum_tail:t
+             {: RESULT = t != null ? t : p; :}
+           | /* empty */
+             {: RESULT = null; :}
+           ;
+
+prod_stage ::= power_stage:p prod_tail:t
+               {: RESULT = t != null ? t : p; :}
+             ;
+
+prod_tail ::= TIMES power_stage:p prod_tail:t
+              {: RESULT = t != null ? t : p; :}
+            | DIV power_stage:p prod_tail:t
+              {: RESULT = t != null ? t : p; :}
+            | MOD power_stage:p prod_tail:t
+              {: RESULT = t != null ? t : p; :}
+            | /* empty */
+              {: RESULT = null; :}
+            ;
+
+power_stage ::= prefix_stage:p POW power_stage:pw
+                {: RESULT = p; :}
+              | prefix_stage:p
+                {: RESULT = p; :}
               ;
 
-prefix_stage ::= MINUS negative_literal
+prefix_stage ::= MINUS negative_literal:n
+                 {: RESULT = n; :}
                | INC incrementable
+                 {: RESULT = DataType.INT; :}
                | DEC incrementable
-               | num_atom
+                 {: RESULT = DataType.INT; :}
+               | num_atom:n
+                 {: RESULT = n; :}
                ;
 
-num_atom ::= numeric_literal
-           | reference_expr
-           | array_access
-           | PIPE_L num_expr PIPE_R
+num_atom ::= numeric_literal:n
+             {: RESULT = n; :}
+           | reference_expr:r
+             {: RESULT = r; :}
+           | array_access:a
+             {: RESULT = a; :}
+           | PIPE_L num_expr:e PIPE_R
+             {: RESULT = e; :}
            ;
 
 incrementable ::= IDENTIFIER ;
 
-negative_literal ::= INTEGER_LITERAL
-                   | FLOAT_LITERAL
-                   | SCIENTIFIC_LITERAL
-                   | FRACTION_LITERAL
+negative_literal ::= INTEGER_LITERAL    {: RESULT = DataType.INT; :}
+                   | FLOAT_LITERAL      {: RESULT = DataType.FLOAT; :}
+                   | SCIENTIFIC_LITERAL {: RESULT = DataType.SCIENTIFIC; :}
+                   | FRACTION_LITERAL   {: RESULT = DataType.FRAC; :}
                    ;
 
-numeric_literal ::= INTEGER_LITERAL
-                  | FLOAT_LITERAL
-                  | SCIENTIFIC_LITERAL
-                  | FRACTION_LITERAL
+numeric_literal ::= INTEGER_LITERAL    {: RESULT = DataType.INT; :}
+                  | FLOAT_LITERAL      {: RESULT = DataType.FLOAT; :}
+                  | SCIENTIFIC_LITERAL {: RESULT = DataType.SCIENTIFIC; :}
+                  | FRACTION_LITERAL   {: RESULT = DataType.FRAC; :}
                   ;
 
-string_expr ::= STRING_LITERAL ;
+string_expr ::= STRING_LITERAL
+                {: RESULT = DataType.STRING; :}
+              ;
 
-char_expr ::= CHAR_LITERAL ;
+char_expr ::= CHAR_LITERAL
+              {: RESULT = DataType.CHAR; :}
+            ;

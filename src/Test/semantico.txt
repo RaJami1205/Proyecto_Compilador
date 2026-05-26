@@ -1,0 +1,61 @@
+empty ~ __main__ <| |> |:
+    int ~ x <- 3.14 !
+    float ~ y <- "hola" !
+    bool ~ flag <- 10 !
+    char ~ letra <- true !
+:|
+
+
+{-
+
+empty ~ __main__ <| |> |:
+    int ~ x <- 5 !
+    x << 0, 0 >> <- 10 !
+:| 
+empty ~ __main__ <| |> |:
+    int ~ matrizA << 2, 2 >> !
+    int ~ x <- matrizA !
+:|
+empty ~ __main__ <| |> |:
+    int ~ x <- 5 !
+    int ~ resultado <- x <| 1, 2 |> !
+:|
+int ~ sumar <| int ~ a, int ~ b |> |:
+    return ~ a + b !
+:|
+
+empty ~ __main__ <| |> |:
+    int ~ x <- sumar !
+:|
+
+empty ~ __main__ <| |> |:
+    int ~ resultado <- sumar <| 1, 2 |> !
+:|
+
+
+empty ~ __main__ <| |> |:
+    matrizA << 0, 0 >> <- 5 !
+:|
+
+
+empty ~ __main__ <| |> |:
+    x <- 10 !
+:|
+int ~ sumar <| int ~ a, int ~ a |> |:
+    return ~ a !
+:|
+
+int ~ sumar <| int ~ x |> |:
+    return ~ x !
+:|
+
+
+empty ~ __main__ <| |> |:
+    int ~ resultado <- sumar <| 1, 2 |> !
+:|
+
+empty ~ __main__ <| |> |:
+    int ~ x <- 5 !
+    int ~ x <- 10 !
+:|
+-}
