@@ -13,6 +13,7 @@ parser code {:
 
     private SymbolInfo currentFunction = null;
     private int blockCounter = 0;
+    private int dentroDeLoop = 0;
 
     public List<String> getErroresSintacticos() {
         return erroresSintacticos;
@@ -408,7 +409,7 @@ non terminal DataType lvalue;
 non terminal DataType array_access;
 
 non terminal matrix_literal, row_list, row_tail, row_literal, cell_list, cell_tail;
-non terminal argument_block_opt, argument_list, argument_tail;
+non terminal java.util.ArrayList argument_block_opt, argument_list, argument_tail;
 
 non terminal DataType call_expr;
 
@@ -429,7 +430,7 @@ non terminal DeclTailInfo int_decl_tail, float_decl_tail, other_decl_tail;
 non terminal Boolean array_init_opt;
 non terminal block_body;
 non terminal block_enter;
-
+non terminal loop_enter, loop_exit;
 start with program;
 
 program ::= function_prefix main_procedure function_suffix ;
@@ -664,12 +665,24 @@ array_access ::= IDENTIFIER:id
                  {:
                      usarArreglo(id, idleft, idright);
                  :}
-                 INDEX_OPEN num_expr COMMA num_expr INDEX_CLOSE
+                 INDEX_OPEN num_expr:i1 COMMA num_expr:i2 INDEX_CLOSE
                  {:
+                     if (i1 != DataType.INT && i1 != null && i1 != DataType.UNKNOWN) {
+                         errorSemantico(
+                             "Error semántico: índice de fila debe ser entero, se encontró " + i1 +
+                             " en línea " + idleft
+                         );
+                     }
+                     if (i2 != DataType.INT && i2 != null && i2 != DataType.UNKNOWN) {
+                         errorSemantico(
+                             "Error semántico: índice de columna debe ser entero, se encontró " + i2 +
+                             " en línea " + idleft
+                         );
+                     }
                      SymbolInfo s = tablaSimbolos.lookup(id);
                      RESULT = s != null ? s.getType() : DataType.UNKNOWN;
                  :}
-                 ;
+               ;
 
 matrix_literal ::= BLOCK_OPEN row_list BLOCK_CLOSE ;
 
@@ -691,21 +704,58 @@ call_expr ::= IDENTIFIER:id
               {:
                   usarFuncion(id, idleft, idright);
               :}
-              PIPE_L argument_block_opt PIPE_R
+              PIPE_L argument_block_opt:args PIPE_R
               {:
                   SymbolInfo s = tablaSimbolos.lookupGlobal(id);
+                  if (s != null) {
+                      List<DataType> params = s.getParameterTypes();
+
+                      if (params.size() != args.size()) {
+                          errorSemantico(
+                              "Error semántico: función '" + id + "' espera " +
+                              params.size() + " argumentos pero se encontraron " +
+                              args.size() + " en línea " + idleft
+                          );
+                      } else {
+                          for (int i = 0; i < params.size(); i++) {
+                              DataType esperado = params.get(i);
+                              DataType encontrado = (DataType) args.get(i);
+                              if (encontrado != null && encontrado != DataType.UNKNOWN &&
+                                  !tiposCompatibles(esperado, encontrado)) {
+                                  errorSemantico(
+                                      "Error semántico: argumento " + (i + 1) +
+                                      " de función '" + id + "' incompatible, se esperaba " +
+                                      esperado + " pero se encontró " + encontrado +
+                                      " en línea " + idleft
+                                  );
+                              }
+                          }
+                      }
+                  }
                   RESULT = s != null ? s.getType() : DataType.UNKNOWN;
               :}
-              ;
+            ;
 
-argument_block_opt ::= argument_list
+argument_block_opt ::= argument_list:l
+                       {: RESULT = l; :}
                      | /* empty */
+                       {: RESULT = new java.util.ArrayList(); :}
                      ;
 
-argument_list ::= expression argument_tail ;
+argument_list ::= expression:e argument_tail:t
+                  {:
+                      t.add(0, e);
+                      RESULT = t;
+                  :}
+                ;
 
-argument_tail ::= COMMA expression argument_tail
+argument_tail ::= COMMA expression:e argument_tail:t
+                  {:
+                      t.add(0, e);
+                      RESULT = t;
+                  :}
                 | /* empty */
+                  {: RESULT = new java.util.ArrayList(); :}
                 ;
 
 read_stmt ::= CIN TILDE read_target ;
@@ -752,7 +802,11 @@ else_opt ::= ELSE TILDE block
            | /* empty */
            ;
 
-do_while_stmt ::= DO TILDE block TILDE WHILE TILDE PIPE_L condition:c PIPE_R BANG
+
+loop_enter ::= {: dentroDeLoop++; :} ;
+loop_exit  ::= {: dentroDeLoop--; :} ;
+
+do_while_stmt ::= DO TILDE loop_enter block TILDE WHILE TILDE PIPE_L condition:c PIPE_R BANG loop_exit
                   {:
                       if (c != DataType.BOOL && c != null && c != DataType.UNKNOWN) {
                           errorSemantico(
@@ -763,8 +817,8 @@ do_while_stmt ::= DO TILDE block TILDE WHILE TILDE PIPE_L condition:c PIPE_R BAN
                   :}
                 ;
 
-switch_stmt ::= SWITCH TILDE PIPE_L expression PIPE_R TILDE BLOCK_OPEN switch_body BLOCK_CLOSE
-              | SWITCH TILDE PIPE_L expression PIPE_R TILDE BLOCK_OPEN error BLOCK_CLOSE
+switch_stmt ::= SWITCH TILDE PIPE_L expression PIPE_R TILDE loop_enter BLOCK_OPEN switch_body BLOCK_CLOSE loop_exit
+              | SWITCH TILDE PIPE_L expression PIPE_R TILDE loop_enter BLOCK_OPEN error BLOCK_CLOSE loop_exit
               ;
 
 switch_body ::= case_list default_opt ;
@@ -787,9 +841,30 @@ case_constant ::= INTEGER_LITERAL
                 | bool_literal
                 ;
 
-return_stmt ::= RETURN TILDE expression ;
+return_stmt ::= RETURN:r TILDE expression:e
+                {:
+                    if (currentFunction != null && e != null && e != DataType.UNKNOWN) {
+                        if (!tiposCompatibles(currentFunction.getType(), e)) {
+                            errorSemantico(
+                                "Error semántico: tipo de retorno incompatible en función '" +
+                                currentFunction.getLexeme() + "', se esperaba " +
+                                currentFunction.getType() + " pero se encontró " + e +
+                                " en línea " + rleft
+                            );
+                        }
+                    }
+                :}
+              ;
 
-break_stmt ::= BREAK ;
+break_stmt ::= BREAK:b
+               {:
+                   if (dentroDeLoop == 0) {
+                       errorSemantico(
+                           "Error semántico: 'break' solo puede usarse dentro de 'do-while' o 'switch' en línea " + bleft
+                       );
+                   }
+               :}
+             ;
 
 expression ::= bool_expr:b  {: RESULT = b; :}
              | num_expr:n   {: RESULT = n; :}
