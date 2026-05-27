@@ -376,6 +376,11 @@ parser code {:
             return false;
     }
 
+    private boolean esNumerico(DataType t) {
+        return t == DataType.INT || t == DataType.FLOAT || 
+           t == DataType.SCIENTIFIC || t == DataType.FRAC;
+    }
+
 :};
 
 terminal INT_T, FLOAT_T, BOOL_T, CHAR_T, STRING_T, SCIENTIFIC_T, FRAC_T, EMPTY_T;
@@ -631,7 +636,7 @@ array_init_opt ::= ASSIGN matrix_literal
                  ;
 
 assign_stmt ::= lvalue:lv ASSIGN expression:e
-                {:
+                {:                   
                     System.out.println("DEBUG assign: lv=" + lv + " e=" + e);
                     if (lv != null && e != null && lv != DataType.UNKNOWN && e != DataType.UNKNOWN) {
                         if (!tiposCompatibles(lv, e)) {
@@ -732,13 +737,31 @@ output_value ::= IDENTIFIER:id
                | STRING_LITERAL
                ;
 
-if_stmt ::= IF TILDE PIPE_L condition PIPE_R block else_opt ;
+if_stmt ::= IF TILDE PIPE_L condition:c PIPE_R block else_opt
+            {:
+                if (c != DataType.BOOL && c != null && c != DataType.UNKNOWN) {
+                    errorSemantico(
+                        "Error semántico: condición del 'if' debe ser booleana, se encontró " + c +
+                        " en línea " + cleft
+                    );
+                }
+            :}
+          ;
 
 else_opt ::= ELSE TILDE block
            | /* empty */
            ;
 
-do_while_stmt ::= DO TILDE block TILDE WHILE TILDE PIPE_L condition PIPE_R BANG ;
+do_while_stmt ::= DO TILDE block TILDE WHILE TILDE PIPE_L condition:c PIPE_R BANG
+                  {:
+                      if (c != DataType.BOOL && c != null && c != DataType.UNKNOWN) {
+                          errorSemantico(
+                              "Error semántico: condición del 'while' debe ser booleana, se encontró " + c +
+                              " en línea " + cleft
+                          );
+                      }
+                  :}
+                ;
 
 switch_stmt ::= SWITCH TILDE PIPE_L expression PIPE_R TILDE BLOCK_OPEN switch_body BLOCK_CLOSE
               | SWITCH TILDE PIPE_L expression PIPE_R TILDE BLOCK_OPEN error BLOCK_CLOSE
@@ -826,18 +849,66 @@ bool_atom ::= bool_literal:b
               {: RESULT = e; :}
             ;
 
-rel_expr ::= EQUAL PIPE_L eq_operand COMMA eq_operand PIPE_R
-             {: RESULT = DataType.BOOL; :}
-           | N_EQUAL PIPE_L eq_operand COMMA eq_operand PIPE_R
-             {: RESULT = DataType.BOOL; :}
-           | LESS_T PIPE_L num_expr COMMA num_expr PIPE_R
-             {: RESULT = DataType.BOOL; :}
-           | LESS_TE PIPE_L num_expr COMMA num_expr PIPE_R
-             {: RESULT = DataType.BOOL; :}
-           | GREATHER_T PIPE_L num_expr COMMA num_expr PIPE_R
-             {: RESULT = DataType.BOOL; :}
-           | GREATHER_TE PIPE_L num_expr COMMA num_expr PIPE_R
-             {: RESULT = DataType.BOOL; :}
+rel_expr ::= EQUAL PIPE_L eq_operand:a COMMA eq_operand:b PIPE_R
+             {:
+                 if (a != null && b != null && a != DataType.UNKNOWN && b != DataType.UNKNOWN && a != b) {
+                     errorSemantico(
+                         "Error semántico: operandos de 'equal' deben ser del mismo tipo, se encontró " +
+                         a + " y " + b + " en línea " + aleft
+                     );
+                 }
+                 RESULT = DataType.BOOL;
+             :}
+           | N_EQUAL PIPE_L eq_operand:a COMMA eq_operand:b PIPE_R
+             {:
+                 if (a != null && b != null && a != DataType.UNKNOWN && b != DataType.UNKNOWN && a != b) {
+                     errorSemantico(
+                         "Error semántico: operandos de 'n_equal' deben ser del mismo tipo, se encontró " +
+                         a + " y " + b + " en línea " + aleft
+                     );
+                 }
+                 RESULT = DataType.BOOL;
+             :}
+           | LESS_T PIPE_L num_expr:a COMMA num_expr:b PIPE_R
+            {:
+                if (!esNumerico(a) || !esNumerico(b)) {
+                    errorSemantico(
+                        "Error semántico: operandos de 'less_t' deben ser numéricos, se encontró " +
+                        a + " y " + b + " en línea " + aleft
+                    );
+                }
+                RESULT = DataType.BOOL;
+            :}
+            | LESS_TE PIPE_L num_expr:a COMMA num_expr:b PIPE_R
+            {:
+                if (!esNumerico(a) || !esNumerico(b)) {
+                    errorSemantico(
+                        "Error semántico: operandos de 'less_te' deben ser numéricos, se encontró " +
+                        a + " y " + b + " en línea " + aleft
+                    );
+                }
+                RESULT = DataType.BOOL;
+            :}
+            | GREATHER_T PIPE_L num_expr:a COMMA num_expr:b PIPE_R
+            {:
+                if (!esNumerico(a) || !esNumerico(b)) {
+                    errorSemantico(
+                        "Error semántico: operandos de 'greather_t' deben ser numéricos, se encontró " +
+                        a + " y " + b + " en línea " + aleft
+                    );
+                }
+                RESULT = DataType.BOOL;
+            :}
+            | GREATHER_TE PIPE_L num_expr:a COMMA num_expr:b PIPE_R
+            {:
+                if (!esNumerico(a) || !esNumerico(b)) {
+                    errorSemantico(
+                        "Error semántico: operandos de 'greather_te' deben ser numéricos, se encontró " +
+                        a + " y " + b + " en línea " + aleft
+                    );
+                }
+                RESULT = DataType.BOOL;
+            :}
            ;
 
 eq_operand ::= num_expr:n  {: RESULT = n; :}
@@ -853,27 +924,81 @@ num_expr ::= sum_stage:s
            ;
 
 sum_stage ::= prod_stage:p sum_tail:t
-              {: RESULT = t != null ? t : p; :}
+              {:
+                  if (t != null && !esNumerico(p)) {
+                      errorSemantico(
+                          "Error semántico: operando de operación aritmética no es numérico, se encontró " + p +
+                          " en línea " + pleft
+                      );
+                  }
+                  RESULT = t != null ? t : p;
+              :}
             ;
-
 sum_tail ::= PLUS prod_stage:p sum_tail:t
-             {: RESULT = t != null ? t : p; :}
+             {:
+                 if (!esNumerico(p)) {
+                     errorSemantico(
+                         "Error semántico: operando de '+' no es numérico, se encontró " + p +
+                         " en línea " + pleft
+                     );
+                 }
+                 RESULT = t != null ? t : p;
+             :}
            | MINUS prod_stage:p sum_tail:t
-             {: RESULT = t != null ? t : p; :}
+             {:
+                 if (!esNumerico(p)) {
+                     errorSemantico(
+                         "Error semántico: operando de '-' no es numérico, se encontró " + p +
+                         " en línea " + pleft
+                     );
+                 }
+                 RESULT = t != null ? t : p;
+             :}
            | /* empty */
              {: RESULT = null; :}
            ;
-
 prod_stage ::= power_stage:p prod_tail:t
-               {: RESULT = t != null ? t : p; :}
+               {:
+                   if (t != null && !esNumerico(p)) {
+                       errorSemantico(
+                           "Error semántico: operando de operación aritmética no es numérico, se encontró " + p +
+                           " en línea " + pleft
+                       );
+                   }
+                   RESULT = t != null ? t : p;
+               :}
              ;
 
 prod_tail ::= TIMES power_stage:p prod_tail:t
-              {: RESULT = t != null ? t : p; :}
+              {:
+                  if (!esNumerico(p)) {
+                      errorSemantico(
+                          "Error semántico: operando de '*' no es numérico, se encontró " + p +
+                          " en línea " + pleft
+                      );
+                  }
+                  RESULT = t != null ? t : p;
+              :}
             | DIV power_stage:p prod_tail:t
-              {: RESULT = t != null ? t : p; :}
+              {:
+                  if (!esNumerico(p)) {
+                      errorSemantico(
+                          "Error semántico: operando de '/' no es numérico, se encontró " + p +
+                          " en línea " + pleft
+                      );
+                  }
+                  RESULT = t != null ? t : p;
+              :}
             | MOD power_stage:p prod_tail:t
-              {: RESULT = t != null ? t : p; :}
+              {:
+                  if (!esNumerico(p)) {
+                      errorSemantico(
+                          "Error semántico: operando de '%' no es numérico, se encontró " + p +
+                          " en línea " + pleft
+                      );
+                  }
+                  RESULT = t != null ? t : p;
+              :}
             | /* empty */
               {: RESULT = null; :}
             ;
@@ -886,12 +1011,12 @@ power_stage ::= prefix_stage:p POW power_stage:pw
 
 prefix_stage ::= MINUS negative_literal:n
                  {: RESULT = n; :}
-               | INC incrementable
+               | INC incrementable:i
                  {: RESULT = DataType.INT; :}
-               | DEC incrementable
+               | DEC incrementable:i
                  {: RESULT = DataType.INT; :}
                | num_atom:n
-                 {: RESULT = n; :}
+                 {: RESULT = n; :}  // ← sin verificación aquí
                ;
 
 num_atom ::= numeric_literal:n
