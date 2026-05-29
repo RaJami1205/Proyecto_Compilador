@@ -11,6 +11,7 @@ import Intermedio.*;
 parser code {:
     private final List<String> erroresSintacticos = new ArrayList<>();
     private final List<String> erroresSemanticos = new ArrayList<>();
+    private final java.util.Map<String, String> irNames = new java.util.HashMap<>();
 
     private final SymbolTableManager tablaSimbolos = new SymbolTableManager();
 
@@ -156,6 +157,7 @@ parser code {:
 
             boolean inserted = tablaSimbolos.insert(s);
             if (!inserted) {
+                registrarIrName(s);
                 errorSemantico(
                     "Error semántico: parámetro redeclarado '" + p.getName() +
                     "' en línea " + p.getLine() + ", columna " + p.getColumn()
@@ -165,7 +167,7 @@ parser code {:
             if (currentFunction != null) {
                 currentFunction.addParameter(p.getName(), p.getType());
             }
-            codigoIntermedio.add("PARAM_DEF", p.getName(), p.getType().toString(), "-");
+            codigoIntermedio.add("PARAM_DEF", getIrName(s), p.getType().toString(), "-");
         }
     }
 
@@ -208,8 +210,11 @@ parser code {:
         }
 
         if (inserted) {
+            registrarIrName(info);
+            String irName = getIrName(info);
+
             if (tail.isArray()) {
-                codigoIntermedio.add("ARRAY_DEF", name, type.toString(), tail.getDim1() + "," + tail.getDim2());
+                codigoIntermedio.add("ARRAY_DEF", irName, type.toString(), tail.getDim1() + "," + tail.getDim2());
 
                 if (tail.getMatrixInit() != null) {
                     ArrayList filas = tail.getMatrixInit();
@@ -217,15 +222,15 @@ parser code {:
                         ArrayList celdas = (ArrayList) filas.get(i);
                         for (int j = 0; j < celdas.size(); j++) {
                             ExprAttr cell = (ExprAttr) celdas.get(j);
-                            codigoIntermedio.add("ARRAY_STORE", cell.place, "-", name + "[" + i + "," + j + "]");
+                            codigoIntermedio.add("ARRAY_STORE", cell.place, "-", irName + "[" + i + "," + j + "]");
                         }
                     }
                 }
             } else {
-                codigoIntermedio.add("LOCAL_DEF", name, type.toString(), "-");
+                codigoIntermedio.add("LOCAL_DEF", irName, type.toString(), "-");
 
                 if (tail.getExprPlace() != null) {
-                    codigoIntermedio.add("ASSIGN", tail.getExprPlace(), "-", name);
+                    codigoIntermedio.add("ASSIGN", tail.getExprPlace(), "-", irName);
                 }
             }
         }
@@ -437,18 +442,20 @@ parser code {:
     }
 
     public static class LValueAttr {
-        public final String name;
+        public final String sourceName;   
+        public final String irName;      
         public final DataType type;
         public final boolean isArray;
         public final String row;
         public final String col;
 
-        public LValueAttr(String name, DataType type) {
-            this(name, type, false, null, null);
+        public LValueAttr(String sourceName, String irName, DataType type) {
+            this(sourceName, irName, type, false, null, null);
         }
 
-        public LValueAttr(String name, DataType type, boolean isArray, String row, String col) {
-            this.name = name;
+        public LValueAttr(String sourceName, String irName, DataType type, boolean isArray, String row, String col) {
+            this.sourceName = sourceName;
+            this.irName = irName;
             this.type = type;
             this.isArray = isArray;
             this.row = row;
@@ -456,8 +463,8 @@ parser code {:
         }
 
         public String render() {
-            if (!isArray) return name;
-            return name + "[" + row + "," + col + "]";
+            if (!isArray) return irName;
+            return irName + "[" + row + "," + col + "]";
         }
     }
 
@@ -475,11 +482,13 @@ parser code {:
         public final ExprAttr control;
         public final String endLabel;
         public String skipLabel;
+        public boolean breakInCurrentCase;
 
         public SwitchState(ExprAttr control, String endLabel) {
             this.control = control;
             this.endLabel = endLabel;
             this.skipLabel = null;
+            this.breakInCurrentCase = false;
         }
     }
 
@@ -552,6 +561,40 @@ parser code {:
         s.setInitialized(true);
     }
 
+    private String symbolKey(SymbolInfo s) {
+        if (s == null) return null;
+        return s.getScopeName() + "::" + s.getLexeme() + "@" + s.getLine() + ":" + s.getColumn();
+    }
+
+    private String sanitizeScopeName(String name) {
+        if (name == null) return "scope";
+        return name.replaceAll("[^a-zA-Z0-9_]", "_");
+    }
+
+    private String buildIrName(SymbolInfo s) {
+        if (s == null) return null;
+
+        if (s.getKind() == SymbolKind.FUNCTION || s.getKind() == SymbolKind.MAIN) {
+            return s.getLexeme();
+        }
+
+        if (s.getScopeLevel() <= 1) {
+            return s.getLexeme();
+        }
+
+        return s.getLexeme() + "_" + sanitizeScopeName(s.getScopeName());
+    }
+
+    private void registrarIrName(SymbolInfo s) {
+        if (s == null) return;
+        irNames.put(symbolKey(s), buildIrName(s));
+    }
+
+    private String getIrName(SymbolInfo s) {
+        if (s == null) return null;
+        return irNames.getOrDefault(symbolKey(s), s.getLexeme());
+    }
+
 :};
 
 terminal INT_T, FLOAT_T, BOOL_T, CHAR_T, STRING_T, SCIENTIFIC_T, FRAC_T, EMPTY_T;
@@ -588,6 +631,7 @@ non terminal LValueAttr read_target;
 non terminal write_stmt, output_list, output_tail;
 non terminal ExprAttr output_value;
 non terminal if_stmt, else_opt, do_while_stmt, switch_stmt, switch_body, case_list, case_section, default_opt;
+non terminal switch_stmt_body;
 non terminal ExprAttr case_constant;
 non terminal return_stmt, break_stmt;
 
@@ -813,7 +857,7 @@ array_init_opt ::= ASSIGN matrix_literal:m
                  ;
 
 assign_stmt ::= lvalue:lv ASSIGN expression:e
-                {:                   
+                {:
                     if (lv != null && e != null && lv.type != DataType.UNKNOWN && e.type != DataType.UNKNOWN) {
                         if (!tiposCompatibles(lv.type, e.type)) {
                             errorSemantico(
@@ -824,10 +868,10 @@ assign_stmt ::= lvalue:lv ASSIGN expression:e
                         }
                     }
 
-                    marcarInicializado(lv.name, lvleft, lvright);
+                    marcarInicializado(lv.sourceName, lvleft, lvright);
 
                     if (!lv.isArray) {
-                        codigoIntermedio.add("ASSIGN", e.place, "-", lv.name);
+                        codigoIntermedio.add("ASSIGN", e.place, "-", lv.irName);
                     } else {
                         codigoIntermedio.add("ARRAY_STORE", e.place, "-", lv.render());
                     }
@@ -838,33 +882,40 @@ lvalue ::= IDENTIFIER:id
            {:
                usarVariable(id, idleft, idright);
                SymbolInfo s = tablaSimbolos.lookup(id);
-               RESULT = new LValueAttr(id, s != null ? s.getType() : DataType.UNKNOWN);
+
+               String ir = (s != null) ? getIrName(s) : id;
+               DataType t = (s != null) ? s.getType() : DataType.UNKNOWN;
+
+               RESULT = new LValueAttr(id, ir, t);
            :}
          | array_access:a
            {: RESULT = a; :}
          ;
-
+         
 array_access ::= IDENTIFIER:id
                  {:
                      usarArreglo(id, idleft, idright);
                  :}
                  INDEX_OPEN num_expr:i1 COMMA num_expr:i2 INDEX_CLOSE
                  {:
-                     if (i1.type != DataType.INT && i1.type != null && i1.type != DataType.UNKNOWN) {
+                     if (i1.type != DataType.INT && i1.type != DataType.UNKNOWN) {
                          errorSemantico(
                              "Error semántico: índice de fila debe ser entero, se encontró " + i1.type +
                              " en línea " + idleft
                          );
                      }
-                     if (i2.type != DataType.INT && i2.type != null && i2.type != DataType.UNKNOWN) {
+                     if (i2.type != DataType.INT && i2.type != DataType.UNKNOWN) {
                          errorSemantico(
                              "Error semántico: índice de columna debe ser entero, se encontró " + i2.type +
                              " en línea " + idleft
                          );
                      }
+
                      SymbolInfo s = tablaSimbolos.lookup(id);
                      DataType t = s != null ? s.getType() : DataType.UNKNOWN;
-                     RESULT = new LValueAttr(id, t, true, i1.place, i2.place);
+                     String ir = s != null ? getIrName(s) : id;
+
+                     RESULT = new LValueAttr(id, ir, t, true, i1.place, i2.place);
                  :}
                ;
 
@@ -995,7 +1046,11 @@ read_target ::= IDENTIFIER:id
                 {:
                     usarVariable(id, idleft, idright);
                     SymbolInfo s = tablaSimbolos.lookup(id);
-                    RESULT = new LValueAttr(id, s != null ? s.getType() : DataType.UNKNOWN);
+
+                    String ir = (s != null) ? getIrName(s) : id;
+                    DataType t = (s != null) ? s.getType() : DataType.UNKNOWN;
+
+                    RESULT = new LValueAttr(id, ir, t);
                 :}
               | array_access:a
                 {: RESULT = a; :}
@@ -1022,7 +1077,10 @@ output_value ::= IDENTIFIER:id
                  {:
                      usarVariable(id, idleft, idright);
                      SymbolInfo s = tablaSimbolos.lookup(id);
-                     RESULT = new ExprAttr(s != null ? s.getType() : DataType.UNKNOWN, id);
+                     RESULT = new ExprAttr(
+                         s != null ? s.getType() : DataType.UNKNOWN,
+                         s != null ? getIrName(s) : id
+                     );
                  :}
                | array_access:a
                  {:
@@ -1110,24 +1168,29 @@ do_while_stmt ::= DO TILDE loop_enter block TILDE WHILE TILDE PIPE_L condition:c
                   loop_exit
                 ;
 
-switch_stmt ::= SWITCH TILDE PIPE_L expression:e PIPE_R TILDE loop_enter BLOCK_OPEN
+switch_stmt ::= SWITCH TILDE PIPE_L expression:e PIPE_R TILDE
                 {:
                     String endLabel = codigoIntermedio.newLabel("switch_end");
-                    breakLabels.pop();
                     breakLabels.push(endLabel);
                     switchStack.push(new SwitchState(e, endLabel));
                 :}
-                switch_body BLOCK_CLOSE
+                BLOCK_OPEN switch_stmt_body BLOCK_CLOSE
                 {:
                     SwitchState sw = switchStack.pop();
+
                     if (sw.skipLabel != null) {
                         codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
+                        sw.skipLabel = null;
                     }
+
                     codigoIntermedio.add("LABEL", "-", "-", sw.endLabel);
+                    breakLabels.pop();
                 :}
-                loop_exit
-              | SWITCH TILDE PIPE_L expression PIPE_R TILDE loop_enter BLOCK_OPEN error BLOCK_CLOSE loop_exit
               ;
+
+switch_stmt_body ::= switch_body
+                   | error
+                   ;
 
 switch_body ::= case_list default_opt ;
 
@@ -1140,19 +1203,48 @@ case_section ::= CASE TILDE case_constant:k TILDE
                      SwitchState sw = switchStack.peek();
                      String skip = codigoIntermedio.newLabel("switch_case_next");
                      ExprAttr cmp = emitBinary("EQ", sw.control, k);
+
                      codigoIntermedio.add("IF_FALSE", cmp.place, "-", skip);
+
                      sw.skipLabel = skip;
+                     sw.breakInCurrentCase = false;
                  :}
                  block
                  {:
                      SwitchState sw = switchStack.peek();
-                     codigoIntermedio.add("GOTO", "-", "-", sw.endLabel);
-                     codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
+
+                     if (!sw.breakInCurrentCase) {
+                         codigoIntermedio.add("GOTO", "-", "-", sw.endLabel);
+                     }
+
+                     if (sw.skipLabel != null) {
+                         codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
+                         sw.skipLabel = null;
+                     }
+
+                     sw.breakInCurrentCase = false;
                  :}
                  ;
 
-default_opt ::= DEFAULT TILDE block
+default_opt ::= DEFAULT TILDE
+                {:
+                    SwitchState sw = switchStack.peek();
+
+                    if (sw.skipLabel != null) {
+                        codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
+                        sw.skipLabel = null;
+                    }
+                :}
+                block
               | /* empty */
+                {:
+                    SwitchState sw = switchStack.peek();
+
+                    if (sw.skipLabel != null) {
+                        codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
+                        sw.skipLabel = null;
+                    }
+                :}
               ;
 
 case_constant ::= INTEGER_LITERAL:v
@@ -1188,7 +1280,9 @@ return_stmt ::= RETURN:r TILDE expression:e
 
 break_stmt ::= BREAK:b
                {:
-                   if (dentroDeLoop == 0) {
+                   boolean contextoValido = (dentroDeLoop > 0) || !switchStack.isEmpty();
+
+                   if (!contextoValido) {
                        errorSemantico(
                            "Error semántico: 'break' solo puede usarse dentro de 'do-while' o 'switch' en línea " + bleft
                        );
@@ -1196,6 +1290,10 @@ break_stmt ::= BREAK:b
 
                    if (!breakLabels.isEmpty()) {
                        codigoIntermedio.add("GOTO", "-", "-", breakLabels.peek());
+                   }
+
+                   if (!switchStack.isEmpty()) {
+                       switchStack.peek().breakInCurrentCase = true;
                    }
                :}
              ;
@@ -1216,7 +1314,10 @@ reference_expr ::= IDENTIFIER:id
                    {:
                        usarVariable(id, idleft, idright);
                        SymbolInfo s = tablaSimbolos.lookup(id);
-                       RESULT = new ExprAttr(s != null ? s.getType() : DataType.UNKNOWN, id);
+                       RESULT = new ExprAttr(
+                           s != null ? s.getType() : DataType.UNKNOWN,
+                           s != null ? getIrName(s) : id
+                       );
                    :}
                  | call_expr:c
                    {: RESULT = c; :}
@@ -1450,7 +1551,10 @@ num_atom ::= numeric_literal:n
 incrementable ::= IDENTIFIER:id
                   {:
                       SymbolInfo s = tablaSimbolos.lookup(id);
-                      RESULT = new ExprAttr(s != null ? s.getType() : DataType.UNKNOWN, id);
+                      RESULT = new ExprAttr(
+                          s != null ? s.getType() : DataType.UNKNOWN,
+                          s != null ? getIrName(s) : id
+                      );
                   :}
                   ;
 
