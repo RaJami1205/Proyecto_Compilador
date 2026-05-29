@@ -1525,13 +1525,25 @@ power_stage ::= prefix_stage:p POW power_stage:pw
               ;
 
 prefix_stage ::= MINUS negative_literal:n
-                 {: RESULT = emitUnary("NEG", n); :}
+                 {:
+                     RESULT = emitUnary("NEG", n);
+                 :}
                | INC incrementable:i
-                 {: RESULT = emitUnary("INC", i); :}
+                 {:
+                     ExprAttr temp = emitUnary("INC", i);
+                     codigoIntermedio.add("ASSIGN", temp.place, "-", i.place);
+                     RESULT = temp;
+                 :}
                | DEC incrementable:i
-                 {: RESULT = emitUnary("DEC", i); :}
+                 {:
+                     ExprAttr temp = emitUnary("DEC", i);
+                     codigoIntermedio.add("ASSIGN", temp.place, "-", i.place);
+                     RESULT = temp;
+                 :}
                | num_atom:n
-                 {: RESULT = n; :}
+                 {:
+                     RESULT = n;
+                 :}
                ;
 
 num_atom ::= numeric_literal:n

@@ -1,0 +1,17 @@
+int~factorial<|int~n|>|:
+    if~<|less_te<|n,1|>|>|:
+        return~1!
+    :|else~|:
+        return~n*factorial<|n-1|>!
+    :|
+:|
+
+empty~__main__<||>|:
+    int~x!
+    int~resultado!
+
+    x<-5!
+    resultado<-factorial<|x|>!
+
+    cout~"factorial =",resultado!
+:|

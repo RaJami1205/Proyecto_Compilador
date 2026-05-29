@@ -1,0 +1,17 @@
+int~fibonacci<|int~n|>|:
+    if~<|less_te<|n,1|>|>|:
+        return~n!
+    :|else~|:
+        return~fibonacci<|n-1|>+fibonacci<|n-2|>!
+    :|
+:|
+
+empty~__main__<||>|:
+    int~n!
+    int~r!
+
+    n<-6!
+    r<-fibonacci<|n|>!
+
+    cout~"fibonacci =",r!
+:|

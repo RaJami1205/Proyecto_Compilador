@@ -1,0 +1,51 @@
+empty~__main__<||>|:
+    int~lista<<1,5>><-|:|:4,8,15,16,23:|:|!
+    int~matriz<<3,3>><-|:|:1,2,3:|,|:4,5,6:|,|:7,8,9:|:|!
+
+    int~i!
+    int~j!
+    int~sumaLista!
+    int~sumaDiagonal!
+    float~promedio!
+
+    sumaLista<-0!
+    sumaDiagonal<-0!
+    promedio<-0.0!
+
+    {- modificar algunos elementos -}
+    lista<<0,2>><-lista<<0,2>>+10!
+    matriz<<1,1>><-matriz<<1,1>>*2!
+    matriz<<2,0>><-matriz<<2,0>>+matriz<<0,0>>!
+
+    {- sumar todos los elementos de la lista -}
+    i<-0!
+    do~|:
+        sumaLista<-sumaLista+lista<<0,i>>!
+        i<-i+1!
+    :|~while~<|less_t<|i,5|>|>!
+
+    {- sumar diagonal principal de la matriz -}
+    i<-0!
+    do~|:
+        sumaDiagonal<-sumaDiagonal+matriz<<i,i>>!
+        i<-i+1!
+    :|~while~<|less_t<|i,3|>|>!
+
+    {- recorrer e imprimir toda la matriz -}
+    i<-0!
+    do~|:
+        j<-0!
+        do~|:
+            cout~"matriz[",i,",",j,"] = ",matriz<<i,j>>!
+            j<-j+1!
+        :|~while~<|less_t<|j,3|>|>!
+        i<-i+1!
+    :|~while~<|less_t<|i,3|>|>!
+
+    promedio<-sumaLista/5.0!
+
+    cout~"lista[0,2] modificada = ",lista<<0,2>>!
+    cout~"suma de la lista = ",sumaLista!
+    cout~"suma diagonal = ",sumaDiagonal!
+    cout~"promedio de la lista = ",promedio!
+:|
