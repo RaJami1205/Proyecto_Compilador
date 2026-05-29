@@ -409,8 +409,10 @@ parser code {:
     }
 
     private boolean esNumerico(DataType t) {
-        return t == DataType.INT || t == DataType.FLOAT || 
-           t == DataType.SCIENTIFIC || t == DataType.FRAC;
+        return t == DataType.INT ||
+            t == DataType.FLOAT ||
+            t == DataType.SCIENTIFIC ||
+            t == DataType.FRAC;
     }
 
     private final IntermediateCode codigoIntermedio = new IntermediateCode();
@@ -523,6 +525,31 @@ parser code {:
 
     private ArrayList nuevaMatriz() {
         return new ArrayList();
+    }
+
+    private DataType promoverNumerico(DataType a, DataType b) {
+        if (a == null || b == null) return DataType.UNKNOWN;
+        if (a == DataType.UNKNOWN || b == DataType.UNKNOWN) return DataType.UNKNOWN;
+
+        if (a == DataType.FLOAT || b == DataType.FLOAT) return DataType.FLOAT;
+        if (a == DataType.SCIENTIFIC || b == DataType.SCIENTIFIC) return DataType.FLOAT;
+        if (a == DataType.FRAC || b == DataType.FRAC) return DataType.FLOAT;
+
+        return DataType.INT;
+    }
+
+    private void marcarInicializado(String name, int line, int col) {
+        SymbolInfo s = tablaSimbolos.lookup(name);
+
+        if (s == null) {
+            errorSemantico(
+                "Error semántico: identificador no declarado '" + name +
+                "' en línea " + line + ", columna " + col
+            );
+            return;
+        }
+
+        s.setInitialized(true);
     }
 
 :};

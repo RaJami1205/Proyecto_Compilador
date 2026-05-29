@@ -10,3 +10,4 @@ public class GenerateTemp {
     public static void reset() {
         count = 0;
     }
+}
