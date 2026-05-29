@@ -3,7 +3,10 @@ package Sintactico;
 import java_cup.runtime.Symbol;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Deque;
+import java.util.ArrayDeque;
 import Semantico.*;
+import Intermedio.*;
 
 parser code {:
     private final List<String> erroresSintacticos = new ArrayList<>();
@@ -113,12 +116,16 @@ parser code {:
         }
 
         tablaSimbolos.enterScope(name);
+        codigoIntermedio.add("FUNC_BEGIN", name, (isMain ? "EMPTY" : returnType.toString()), "-");
     }
 
     /**
     * Cierra el scope de la función actual y limpia la referencia a la función activa.
     */
     private void cerrarFuncion() {
+        if (currentFunction != null) {
+            codigoIntermedio.add("FUNC_END", currentFunction.getLexeme(), "-", "-");
+        }
         currentFunction = null;
         tablaSimbolos.exitScope();
     }
@@ -158,6 +165,7 @@ parser code {:
             if (currentFunction != null) {
                 currentFunction.addParameter(p.getName(), p.getType());
             }
+            codigoIntermedio.add("PARAM_DEF", p.getName(), p.getType().toString(), "-");
         }
     }
 
@@ -197,6 +205,29 @@ parser code {:
                 "' en línea " + line + ", columna " + col +
                 " dentro del scope '" + tablaSimbolos.currentScope().getName() + "'"
             );
+        }
+
+        if (inserted) {
+            if (tail.isArray()) {
+                codigoIntermedio.add("ARRAY_DEF", name, type.toString(), tail.getDim1() + "," + tail.getDim2());
+
+                if (tail.getMatrixInit() != null) {
+                    ArrayList filas = tail.getMatrixInit();
+                    for (int i = 0; i < filas.size(); i++) {
+                        ArrayList celdas = (ArrayList) filas.get(i);
+                        for (int j = 0; j < celdas.size(); j++) {
+                            ExprAttr cell = (ExprAttr) celdas.get(j);
+                            codigoIntermedio.add("ARRAY_STORE", cell.place, "-", name + "[" + i + "," + j + "]");
+                        }
+                    }
+                }
+            } else {
+                codigoIntermedio.add("LOCAL_DEF", name, type.toString(), "-");
+
+                if (tail.getExprPlace() != null) {
+                    codigoIntermedio.add("ASSIGN", tail.getExprPlace(), "-", name);
+                }
+            }
         }
     }
 
@@ -382,6 +413,118 @@ parser code {:
            t == DataType.SCIENTIFIC || t == DataType.FRAC;
     }
 
+    private final IntermediateCode codigoIntermedio = new IntermediateCode();
+
+    private final Deque<String> breakLabels = new ArrayDeque<>();
+    private final Deque<String[]> ifLabels = new ArrayDeque<>();
+    private final Deque<String[]> loopLabels = new ArrayDeque<>();
+    private final Deque<SwitchState> switchStack = new ArrayDeque<>();
+
+    public IntermediateCode getCodigoIntermedio() {
+        return codigoIntermedio;
+    }
+
+    public static class ExprAttr {
+        public final DataType type;
+        public final String place;
+
+        public ExprAttr(DataType type, String place) {
+            this.type = type;
+            this.place = place;
+        }
+    }
+
+    public static class LValueAttr {
+        public final String name;
+        public final DataType type;
+        public final boolean isArray;
+        public final String row;
+        public final String col;
+
+        public LValueAttr(String name, DataType type) {
+            this(name, type, false, null, null);
+        }
+
+        public LValueAttr(String name, DataType type, boolean isArray, String row, String col) {
+            this.name = name;
+            this.type = type;
+            this.isArray = isArray;
+            this.row = row;
+            this.col = col;
+        }
+
+        public String render() {
+            if (!isArray) return name;
+            return name + "[" + row + "," + col + "]";
+        }
+    }
+
+    private static class Step {
+        public final String op;
+        public final ExprAttr expr;
+
+        public Step(String op, ExprAttr expr) {
+            this.op = op;
+            this.expr = expr;
+        }
+    }
+
+    private static class SwitchState {
+        public final ExprAttr control;
+        public final String endLabel;
+        public String skipLabel;
+
+        public SwitchState(ExprAttr control, String endLabel) {
+            this.control = control;
+            this.endLabel = endLabel;
+            this.skipLabel = null;
+        }
+    }
+
+    private ExprAttr emitBinary(String op, ExprAttr a, ExprAttr b) {
+        DataType resultType;
+
+        if (op.equals("AND") || op.equals("OR") ||
+            op.equals("EQ") || op.equals("NE") ||
+            op.equals("LT") || op.equals("LE") ||
+            op.equals("GT") || op.equals("GE")) {
+            resultType = DataType.BOOL;
+        } else {
+            resultType = promoverNumerico(a.type, b.type);
+        }
+
+        String t = codigoIntermedio.newTemp();
+        codigoIntermedio.add(op, a.place, b.place, t);
+        return new ExprAttr(resultType, t);
+    }
+
+    private ExprAttr emitUnary(String op, ExprAttr a) {
+        String t = codigoIntermedio.newTemp();
+        codigoIntermedio.add(op, a.place, "-", t);
+
+        if (op.equals("NOT")) {
+            return new ExprAttr(DataType.BOOL, t);
+        }
+        return new ExprAttr(a.type, t);
+    }
+
+    private ExprAttr fold(ExprAttr base, ArrayList steps) {
+        ExprAttr result = base;
+        for (Object obj : steps) {
+            Step s = (Step) obj;
+            result = emitBinary(s.op, result, s.expr);
+        }
+        return result;
+    }
+
+    private ArrayList nuevaFila() {
+        return new ArrayList();
+    }
+
+    private ArrayList nuevaMatriz() {
+        return new ArrayList();
+    }
+
 :};
 
 terminal INT_T, FLOAT_T, BOOL_T, CHAR_T, STRING_T, SCIENTIFIC_T, FRAC_T, EMPTY_T;
@@ -404,30 +547,36 @@ non terminal statement;
 non terminal declaration_stmt, typed_decl;
 non terminal assign_stmt;
 
-non terminal DataType lvalue;
+non terminal LValueAttr lvalue;
 
-non terminal DataType array_access;
+non terminal LValueAttr array_access;
 
-non terminal matrix_literal, row_list, row_tail, row_literal, cell_list, cell_tail;
+non terminal java.util.ArrayList matrix_literal, row_list, row_tail, row_literal, cell_list, cell_tail;
 non terminal java.util.ArrayList argument_block_opt, argument_list, argument_tail;
 
-non terminal DataType call_expr;
+non terminal ExprAttr call_expr;
 
-non terminal read_stmt, read_target, write_stmt, output_list, output_tail, output_value;
-non terminal if_stmt, else_opt, do_while_stmt, switch_stmt, switch_body, case_list, case_section, default_opt, case_constant;
+non terminal read_stmt;
+non terminal LValueAttr read_target;
+non terminal write_stmt, output_list, output_tail;
+non terminal ExprAttr output_value;
+non terminal if_stmt, else_opt, do_while_stmt, switch_stmt, switch_body, case_list, case_section, default_opt;
+non terminal ExprAttr case_constant;
 non terminal return_stmt, break_stmt;
 
-non terminal DataType expression, condition;
-non terminal DataType reference_expr;
+non terminal ExprAttr expression, condition;
+non terminal ExprAttr reference_expr;
 
-non terminal DataType bool_expr, bool_chain, bool_chain_tail, conj_term, conj_term_tail, bool_unit, bool_atom, rel_expr, eq_operand, bool_literal;
-non terminal DataType num_expr, sum_stage, sum_tail, prod_stage, prod_tail, power_stage, prefix_stage, num_atom, incrementable, negative_literal, numeric_literal;
-non terminal DataType string_expr, char_expr;
+non terminal ExprAttr bool_expr, bool_chain, conj_term, bool_unit, bool_atom, rel_expr, eq_operand, bool_literal;
+non terminal java.util.ArrayList bool_chain_tail, conj_term_tail;
+non terminal ExprAttr num_expr, sum_stage, prod_stage, power_stage, prefix_stage, num_atom, incrementable, negative_literal, numeric_literal;
+non terminal java.util.ArrayList sum_tail, prod_tail;
+non terminal ExprAttr string_expr, char_expr;
 
 non terminal DataType return_type, data_type, non_array_type;
 non terminal ParameterInfo parameter;
 non terminal DeclTailInfo int_decl_tail, float_decl_tail, other_decl_tail;
-non terminal Boolean array_init_opt;
+non terminal java.util.ArrayList array_init_opt;
 non terminal block_body;
 non terminal block_enter;
 non terminal loop_enter, loop_exit;
@@ -539,7 +688,7 @@ block_enter ::=
 
 block_body ::= block_items
              | error
-        ;
+             ;
 
 block_items ::= block_item block_items
               | /* empty */
@@ -609,44 +758,51 @@ non_array_type ::= BOOL_T        {: RESULT = DataType.BOOL; :}
                  ;
 
 other_decl_tail ::= ASSIGN expression:e
-                    {: RESULT = DeclTailInfo.scalar(true, e); :}
+                    {: RESULT = DeclTailInfo.scalar(true, e.type, e.place); :}
                   | /* empty */
-                    {: RESULT = DeclTailInfo.scalar(false, null); :}
+                    {: RESULT = DeclTailInfo.scalar(false, null, null); :}
                   ;
 
 int_decl_tail ::= ASSIGN expression:e
-                  {: RESULT = DeclTailInfo.scalar(true, e); :}
+                  {: RESULT = DeclTailInfo.scalar(true, e.type, e.place); :}
                 | INDEX_OPEN INTEGER_LITERAL:d1 COMMA INTEGER_LITERAL:d2 INDEX_CLOSE array_init_opt:init
-                  {: RESULT = DeclTailInfo.array(Integer.parseInt(d1), Integer.parseInt(d2), init.booleanValue()); :}
+                  {: RESULT = DeclTailInfo.array(Integer.parseInt(d1), Integer.parseInt(d2), init != null, init); :}
                 | /* empty */
-                  {: RESULT = DeclTailInfo.scalar(false, null); :}
+                  {: RESULT = DeclTailInfo.scalar(false, null, null); :}
                 ;
 
 float_decl_tail ::= ASSIGN expression:e
-                    {: RESULT = DeclTailInfo.scalar(true,e); :}
+                    {: RESULT = DeclTailInfo.scalar(true, e.type, e.place); :}
                   | INDEX_OPEN INTEGER_LITERAL:d1 COMMA INTEGER_LITERAL:d2 INDEX_CLOSE array_init_opt:init
-                    {: RESULT = DeclTailInfo.array(Integer.parseInt(d1), Integer.parseInt(d2), init.booleanValue()); :}
+                    {: RESULT = DeclTailInfo.array(Integer.parseInt(d1), Integer.parseInt(d2), init != null, init); :}
                   | /* empty */
-                    {: RESULT = DeclTailInfo.scalar(false,null); :}
+                    {: RESULT = DeclTailInfo.scalar(false, null, null); :}
                   ;
 
-array_init_opt ::= ASSIGN matrix_literal
-                   {: RESULT = Boolean.TRUE; :}
+array_init_opt ::= ASSIGN matrix_literal:m
+                   {: RESULT = m; :}
                  | /* empty */
-                   {: RESULT = Boolean.FALSE; :}
+                   {: RESULT = null; :}
                  ;
 
 assign_stmt ::= lvalue:lv ASSIGN expression:e
                 {:                   
-                    System.out.println("DEBUG assign: lv=" + lv + " e=" + e);
-                    if (lv != null && e != null && lv != DataType.UNKNOWN && e != DataType.UNKNOWN) {
-                        if (!tiposCompatibles(lv, e)) {
+                    if (lv != null && e != null && lv.type != DataType.UNKNOWN && e.type != DataType.UNKNOWN) {
+                        if (!tiposCompatibles(lv.type, e.type)) {
                             errorSemantico(
                                 "Error semántico: tipos incompatibles en asignación, " +
-                                "se esperaba " + lv + " pero se encontró " + e +
+                                "se esperaba " + lv.type + " pero se encontró " + e.type +
                                 " en línea " + lvleft
                             );
                         }
+                    }
+
+                    marcarInicializado(lv.name, lvleft, lvright);
+
+                    if (!lv.isArray) {
+                        codigoIntermedio.add("ASSIGN", e.place, "-", lv.name);
+                    } else {
+                        codigoIntermedio.add("ARRAY_STORE", e.place, "-", lv.render());
                     }
                 :}
               ;
@@ -655,7 +811,7 @@ lvalue ::= IDENTIFIER:id
            {:
                usarVariable(id, idleft, idright);
                SymbolInfo s = tablaSimbolos.lookup(id);
-               RESULT = s != null ? s.getType() : DataType.UNKNOWN;
+               RESULT = new LValueAttr(id, s != null ? s.getType() : DataType.UNKNOWN);
            :}
          | array_access:a
            {: RESULT = a; :}
@@ -667,37 +823,68 @@ array_access ::= IDENTIFIER:id
                  :}
                  INDEX_OPEN num_expr:i1 COMMA num_expr:i2 INDEX_CLOSE
                  {:
-                     if (i1 != DataType.INT && i1 != null && i1 != DataType.UNKNOWN) {
+                     if (i1.type != DataType.INT && i1.type != null && i1.type != DataType.UNKNOWN) {
                          errorSemantico(
-                             "Error semántico: índice de fila debe ser entero, se encontró " + i1 +
+                             "Error semántico: índice de fila debe ser entero, se encontró " + i1.type +
                              " en línea " + idleft
                          );
                      }
-                     if (i2 != DataType.INT && i2 != null && i2 != DataType.UNKNOWN) {
+                     if (i2.type != DataType.INT && i2.type != null && i2.type != DataType.UNKNOWN) {
                          errorSemantico(
-                             "Error semántico: índice de columna debe ser entero, se encontró " + i2 +
+                             "Error semántico: índice de columna debe ser entero, se encontró " + i2.type +
                              " en línea " + idleft
                          );
                      }
                      SymbolInfo s = tablaSimbolos.lookup(id);
-                     RESULT = s != null ? s.getType() : DataType.UNKNOWN;
+                     DataType t = s != null ? s.getType() : DataType.UNKNOWN;
+                     RESULT = new LValueAttr(id, t, true, i1.place, i2.place);
                  :}
                ;
 
-matrix_literal ::= BLOCK_OPEN row_list BLOCK_CLOSE ;
+matrix_literal ::= BLOCK_OPEN row_list:r BLOCK_CLOSE
+                   {: RESULT = r; :}
+                   ;
 
-row_list ::= row_literal row_tail ;
-
-row_tail ::= COMMA row_literal row_tail
-           | /* empty */
+row_list ::= row_literal:r row_tail:t
+             {:
+                 ArrayList matriz = nuevaMatriz();
+                 matriz.add(r);
+                 for (Object obj : t) matriz.add(obj);
+                 RESULT = matriz;
+             :}
            ;
 
-row_literal ::= BLOCK_OPEN cell_list BLOCK_CLOSE ;
+row_tail ::= COMMA row_literal:r row_tail:t
+             {:
+                 ArrayList tail = t;
+                 tail.add(0, r);
+                 RESULT = tail;
+             :}
+           | /* empty */
+             {: RESULT = nuevaMatriz(); :}
+           ;
 
-cell_list ::= num_expr cell_tail ;
+row_literal ::= BLOCK_OPEN cell_list:c BLOCK_CLOSE
+                {: RESULT = c; :}
+                ;
 
-cell_tail ::= COMMA num_expr cell_tail
+cell_list ::= num_expr:e cell_tail:t
+              {:
+                  ArrayList fila = nuevaFila();
+                  fila.add(e);
+                  for (Object obj : t) fila.add(obj);
+                  RESULT = fila;
+              :}
+            ;
+
+cell_tail ::= COMMA num_expr:e cell_tail:t
+              {:
+                  ArrayList tail = t;
+                  tail.add(0, e);
+                  RESULT = tail;
+              :}
             | /* empty */
+              {: RESULT = nuevaFila(); :}
             ;
 
 call_expr ::= IDENTIFIER:id
@@ -719,20 +906,33 @@ call_expr ::= IDENTIFIER:id
                       } else {
                           for (int i = 0; i < params.size(); i++) {
                               DataType esperado = params.get(i);
-                              DataType encontrado = (DataType) args.get(i);
-                              if (encontrado != null && encontrado != DataType.UNKNOWN &&
-                                  !tiposCompatibles(esperado, encontrado)) {
+                              ExprAttr encontrado = (ExprAttr) args.get(i);
+                              if (encontrado.type != null && encontrado.type != DataType.UNKNOWN &&
+                                  !tiposCompatibles(esperado, encontrado.type)) {
                                   errorSemantico(
                                       "Error semántico: argumento " + (i + 1) +
                                       " de función '" + id + "' incompatible, se esperaba " +
-                                      esperado + " pero se encontró " + encontrado +
+                                      esperado + " pero se encontró " + encontrado.type +
                                       " en línea " + idleft
                                   );
                               }
                           }
                       }
                   }
-                  RESULT = s != null ? s.getType() : DataType.UNKNOWN;
+
+                  for (Object obj : args) {
+                      ExprAttr arg = (ExprAttr) obj;
+                      codigoIntermedio.add("PARAM", arg.place, "-", "-");
+                  }
+
+                  if (s != null && s.getType() != DataType.EMPTY) {
+                      String t = codigoIntermedio.newTemp();
+                      codigoIntermedio.add("CALL", id, String.valueOf(args.size()), t);
+                      RESULT = new ExprAttr(s.getType(), t);
+                  } else {
+                      codigoIntermedio.add("CALL", id, String.valueOf(args.size()), "-");
+                      RESULT = new ExprAttr(s != null ? s.getType() : DataType.UNKNOWN, "-");
+                  }
               :}
             ;
 
@@ -758,66 +958,147 @@ argument_tail ::= COMMA expression:e argument_tail:t
                   {: RESULT = new java.util.ArrayList(); :}
                 ;
 
-read_stmt ::= CIN TILDE read_target ;
+read_stmt ::= CIN TILDE read_target:rt
+              {:
+                  codigoIntermedio.add("READ", "-", "-", rt.render());
+              :}
+            ;
 
 read_target ::= IDENTIFIER:id
                 {:
                     usarVariable(id, idleft, idright);
+                    SymbolInfo s = tablaSimbolos.lookup(id);
+                    RESULT = new LValueAttr(id, s != null ? s.getType() : DataType.UNKNOWN);
                 :}
-              | array_access
+              | array_access:a
+                {: RESULT = a; :}
               ;
 
 write_stmt ::= COUT TILDE output_list ;
 
-output_list ::= output_value output_tail ;
+output_list ::= output_value:v
+                {:
+                    codigoIntermedio.add("WRITE", v.place, "-", "-");
+                :}
+                output_tail
+              ;
 
-output_tail ::= COMMA output_value output_tail
+output_tail ::= COMMA output_value:v
+                {:
+                    codigoIntermedio.add("WRITE", v.place, "-", "-");
+                :}
+                output_tail
               | /* empty */
               ;
 
 output_value ::= IDENTIFIER:id
                  {:
                      usarVariable(id, idleft, idright);
+                     SymbolInfo s = tablaSimbolos.lookup(id);
+                     RESULT = new ExprAttr(s != null ? s.getType() : DataType.UNKNOWN, id);
                  :}
-               | array_access
-               | numeric_literal
-               | MINUS numeric_literal
-               | bool_literal
-               | CHAR_LITERAL
-               | STRING_LITERAL
+               | array_access:a
+                 {:
+                     String t = codigoIntermedio.newTemp();
+                     codigoIntermedio.add("ARRAY_LOAD", a.render(), "-", t);
+                     RESULT = new ExprAttr(a.type, t);
+                 :}
+               | numeric_literal:n
+                 {: RESULT = n; :}
+               | MINUS numeric_literal:n
+                 {: RESULT = emitUnary("NEG", n); :}
+               | bool_literal:b
+                 {: RESULT = b; :}
+               | CHAR_LITERAL:v
+                 {: RESULT = new ExprAttr(DataType.CHAR, v); :}
+               | STRING_LITERAL:v
+                 {: RESULT = new ExprAttr(DataType.STRING, v); :}
                ;
 
-if_stmt ::= IF TILDE PIPE_L condition:c PIPE_R block else_opt
+if_stmt ::= IF TILDE PIPE_L condition:c PIPE_R
             {:
-                if (c != DataType.BOOL && c != null && c != DataType.UNKNOWN) {
+                if (c.type != DataType.BOOL && c.type != null && c.type != DataType.UNKNOWN) {
                     errorSemantico(
-                        "Error semántico: condición del 'if' debe ser booleana, se encontró " + c +
+                        "Error semántico: condición del 'if' debe ser booleana, se encontró " + c.type +
                         " en línea " + cleft
                     );
                 }
+
+                String elseLabel = codigoIntermedio.newLabel("if_else");
+                String endLabel = codigoIntermedio.newLabel("if_end");
+                ifLabels.push(new String[]{elseLabel, endLabel});
+
+                codigoIntermedio.add("IF_FALSE", c.place, "-", elseLabel);
+            :}
+            block
+            else_opt
+            {:
+                String[] labels = ifLabels.pop();
+                codigoIntermedio.add("LABEL", "-", "-", labels[1]);
             :}
           ;
 
-else_opt ::= ELSE TILDE block
+else_opt ::= ELSE TILDE
+             {:
+                 String[] labels = ifLabels.peek();
+                 codigoIntermedio.add("GOTO", "-", "-", labels[1]);
+                 codigoIntermedio.add("LABEL", "-", "-", labels[0]);
+             :}
+             block
            | /* empty */
+             {:
+                 String[] labels = ifLabels.peek();
+                 codigoIntermedio.add("LABEL", "-", "-", labels[0]);
+             :}
            ;
 
+loop_enter ::= {: 
+                    dentroDeLoop++;
+                    String start = codigoIntermedio.newLabel("do_start");
+                    String end = codigoIntermedio.newLabel("do_end");
+                    loopLabels.push(new String[]{start, end});
+                    breakLabels.push(end);
+                    codigoIntermedio.add("LABEL", "-", "-", start);
+                :} ;
 
-loop_enter ::= {: dentroDeLoop++; :} ;
-loop_exit  ::= {: dentroDeLoop--; :} ;
+loop_exit  ::= {: 
+                    dentroDeLoop--;
+                    loopLabels.pop();
+                    breakLabels.pop();
+                :} ;
 
-do_while_stmt ::= DO TILDE loop_enter block TILDE WHILE TILDE PIPE_L condition:c PIPE_R BANG loop_exit
+do_while_stmt ::= DO TILDE loop_enter block TILDE WHILE TILDE PIPE_L condition:c PIPE_R BANG
                   {:
-                      if (c != DataType.BOOL && c != null && c != DataType.UNKNOWN) {
+                      if (c.type != DataType.BOOL && c.type != null && c.type != DataType.UNKNOWN) {
                           errorSemantico(
-                              "Error semántico: condición del 'while' debe ser booleana, se encontró " + c +
+                              "Error semántico: condición del 'while' debe ser booleana, se encontró " + c.type +
                               " en línea " + cleft
                           );
                       }
+
+                      String[] labels = loopLabels.peek();
+                      codigoIntermedio.add("IF_TRUE", c.place, "-", labels[0]);
+                      codigoIntermedio.add("LABEL", "-", "-", labels[1]);
                   :}
+                  loop_exit
                 ;
 
-switch_stmt ::= SWITCH TILDE PIPE_L expression PIPE_R TILDE loop_enter BLOCK_OPEN switch_body BLOCK_CLOSE loop_exit
+switch_stmt ::= SWITCH TILDE PIPE_L expression:e PIPE_R TILDE loop_enter BLOCK_OPEN
+                {:
+                    String endLabel = codigoIntermedio.newLabel("switch_end");
+                    breakLabels.pop();
+                    breakLabels.push(endLabel);
+                    switchStack.push(new SwitchState(e, endLabel));
+                :}
+                switch_body BLOCK_CLOSE
+                {:
+                    SwitchState sw = switchStack.pop();
+                    if (sw.skipLabel != null) {
+                        codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
+                    }
+                    codigoIntermedio.add("LABEL", "-", "-", sw.endLabel);
+                :}
+                loop_exit
               | SWITCH TILDE PIPE_L expression PIPE_R TILDE loop_enter BLOCK_OPEN error BLOCK_CLOSE loop_exit
               ;
 
@@ -827,32 +1108,54 @@ case_list ::= case_section case_list
             | /* empty */
             ;
 
-case_section ::= CASE TILDE case_constant TILDE block ;
+case_section ::= CASE TILDE case_constant:k TILDE
+                 {:
+                     SwitchState sw = switchStack.peek();
+                     String skip = codigoIntermedio.newLabel("switch_case_next");
+                     ExprAttr cmp = emitBinary("EQ", sw.control, k);
+                     codigoIntermedio.add("IF_FALSE", cmp.place, "-", skip);
+                     sw.skipLabel = skip;
+                 :}
+                 block
+                 {:
+                     SwitchState sw = switchStack.peek();
+                     codigoIntermedio.add("GOTO", "-", "-", sw.endLabel);
+                     codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
+                 :}
+                 ;
 
 default_opt ::= DEFAULT TILDE block
               | /* empty */
               ;
 
-case_constant ::= INTEGER_LITERAL
-                | FLOAT_LITERAL
-                | SCIENTIFIC_LITERAL
-                | FRACTION_LITERAL
-                | CHAR_LITERAL
-                | bool_literal
+case_constant ::= INTEGER_LITERAL:v
+                  {: RESULT = new ExprAttr(DataType.INT, v); :}
+                | FLOAT_LITERAL:v
+                  {: RESULT = new ExprAttr(DataType.FLOAT, v); :}
+                | SCIENTIFIC_LITERAL:v
+                  {: RESULT = new ExprAttr(DataType.SCIENTIFIC, v); :}
+                | FRACTION_LITERAL:v
+                  {: RESULT = new ExprAttr(DataType.FRAC, v); :}
+                | CHAR_LITERAL:v
+                  {: RESULT = new ExprAttr(DataType.CHAR, v); :}
+                | bool_literal:b
+                  {: RESULT = b; :}
                 ;
 
 return_stmt ::= RETURN:r TILDE expression:e
                 {:
-                    if (currentFunction != null && e != null && e != DataType.UNKNOWN) {
-                        if (!tiposCompatibles(currentFunction.getType(), e)) {
+                    if (currentFunction != null && e != null && e.type != DataType.UNKNOWN) {
+                        if (!tiposCompatibles(currentFunction.getType(), e.type)) {
                             errorSemantico(
                                 "Error semántico: tipo de retorno incompatible en función '" +
                                 currentFunction.getLexeme() + "', se esperaba " +
-                                currentFunction.getType() + " pero se encontró " + e +
+                                currentFunction.getType() + " pero se encontró " + e.type +
                                 " en línea " + rleft
                             );
                         }
                     }
+
+                    codigoIntermedio.add("RETURN", e.place, "-", "-");
                 :}
               ;
 
@@ -863,24 +1166,30 @@ break_stmt ::= BREAK:b
                            "Error semántico: 'break' solo puede usarse dentro de 'do-while' o 'switch' en línea " + bleft
                        );
                    }
+
+                   if (!breakLabels.isEmpty()) {
+                       codigoIntermedio.add("GOTO", "-", "-", breakLabels.peek());
+                   }
                :}
              ;
 
-expression ::= bool_expr:b  {: RESULT = b; :}
-             | num_expr:n   {: RESULT = n; :}
+expression ::= bool_expr:b   {: RESULT = b; :}
+             | num_expr:n    {: RESULT = n; :}
              | string_expr:s {: RESULT = s; :}
-             | char_expr:c  {: RESULT = c; :}
+             | char_expr:c   {: RESULT = c; :}
              ;
 
-condition ::= bool_expr:b    {: RESULT = b; :}
-            | reference_expr:r {: RESULT = r; :}
+condition ::= bool_expr:b
+              {: RESULT = b; :}
+            | reference_expr:r
+              {: RESULT = r; :}
             ;
 
 reference_expr ::= IDENTIFIER:id
                    {:
                        usarVariable(id, idleft, idright);
                        SymbolInfo s = tablaSimbolos.lookup(id);
-                       RESULT = s != null ? s.getType() : DataType.UNKNOWN;
+                       RESULT = new ExprAttr(s != null ? s.getType() : DataType.UNKNOWN, id);
                    :}
                  | call_expr:c
                    {: RESULT = c; :}
@@ -891,27 +1200,33 @@ bool_expr ::= bool_chain:b
             ;
 
 bool_chain ::= conj_term:c bool_chain_tail:t
-               {: RESULT = DataType.BOOL; :}
+               {: RESULT = fold(c, t); :}
              ;
 
 bool_chain_tail ::= OR conj_term:c bool_chain_tail:t
-                    {: RESULT = DataType.BOOL; :}
+                    {:
+                        t.add(0, new Step("OR", c));
+                        RESULT = t;
+                    :}
                   | /* empty */
-                    {: RESULT = null; :}
+                    {: RESULT = new java.util.ArrayList(); :}
                   ;
 
 conj_term ::= bool_unit:b conj_term_tail:t
-              {: RESULT = DataType.BOOL; :}
+              {: RESULT = fold(b, t); :}
             ;
 
 conj_term_tail ::= AND bool_unit:b conj_term_tail:t
-                   {: RESULT = DataType.BOOL; :}
+                   {:
+                       t.add(0, new Step("AND", b));
+                       RESULT = t;
+                   :}
                  | /* empty */
-                   {: RESULT = null; :}
+                   {: RESULT = new java.util.ArrayList(); :}
                  ;
 
 bool_unit ::= NOT bool_unit:b
-              {: RESULT = b; :}
+              {: RESULT = emitUnary("NOT", b); :}
             | bool_atom:a
               {: RESULT = a; :}
             ;
@@ -926,63 +1241,67 @@ bool_atom ::= bool_literal:b
 
 rel_expr ::= EQUAL PIPE_L eq_operand:a COMMA eq_operand:b PIPE_R
              {:
-                 if (a != null && b != null && a != DataType.UNKNOWN && b != DataType.UNKNOWN && a != b) {
+                 if (a.type != null && b.type != null &&
+                     a.type != DataType.UNKNOWN && b.type != DataType.UNKNOWN &&
+                     a.type != b.type) {
                      errorSemantico(
                          "Error semántico: operandos de 'equal' deben ser del mismo tipo, se encontró " +
-                         a + " y " + b + " en línea " + aleft
+                         a.type + " y " + b.type + " en línea " + aleft
                      );
                  }
-                 RESULT = DataType.BOOL;
+                 RESULT = emitBinary("EQ", a, b);
              :}
            | N_EQUAL PIPE_L eq_operand:a COMMA eq_operand:b PIPE_R
              {:
-                 if (a != null && b != null && a != DataType.UNKNOWN && b != DataType.UNKNOWN && a != b) {
+                 if (a.type != null && b.type != null &&
+                     a.type != DataType.UNKNOWN && b.type != DataType.UNKNOWN &&
+                     a.type != b.type) {
                      errorSemantico(
                          "Error semántico: operandos de 'n_equal' deben ser del mismo tipo, se encontró " +
-                         a + " y " + b + " en línea " + aleft
+                         a.type + " y " + b.type + " en línea " + aleft
                      );
                  }
-                 RESULT = DataType.BOOL;
+                 RESULT = emitBinary("NE", a, b);
              :}
            | LESS_T PIPE_L num_expr:a COMMA num_expr:b PIPE_R
             {:
-                if (!esNumerico(a) || !esNumerico(b)) {
+                if (!esNumerico(a.type) || !esNumerico(b.type)) {
                     errorSemantico(
                         "Error semántico: operandos de 'less_t' deben ser numéricos, se encontró " +
-                        a + " y " + b + " en línea " + aleft
+                        a.type + " y " + b.type + " en línea " + aleft
                     );
                 }
-                RESULT = DataType.BOOL;
+                RESULT = emitBinary("LT", a, b);
             :}
             | LESS_TE PIPE_L num_expr:a COMMA num_expr:b PIPE_R
             {:
-                if (!esNumerico(a) || !esNumerico(b)) {
+                if (!esNumerico(a.type) || !esNumerico(b.type)) {
                     errorSemantico(
                         "Error semántico: operandos de 'less_te' deben ser numéricos, se encontró " +
-                        a + " y " + b + " en línea " + aleft
+                        a.type + " y " + b.type + " en línea " + aleft
                     );
                 }
-                RESULT = DataType.BOOL;
+                RESULT = emitBinary("LE", a, b);
             :}
             | GREATHER_T PIPE_L num_expr:a COMMA num_expr:b PIPE_R
             {:
-                if (!esNumerico(a) || !esNumerico(b)) {
+                if (!esNumerico(a.type) || !esNumerico(b.type)) {
                     errorSemantico(
                         "Error semántico: operandos de 'greather_t' deben ser numéricos, se encontró " +
-                        a + " y " + b + " en línea " + aleft
+                        a.type + " y " + b.type + " en línea " + aleft
                     );
                 }
-                RESULT = DataType.BOOL;
+                RESULT = emitBinary("GT", a, b);
             :}
             | GREATHER_TE PIPE_L num_expr:a COMMA num_expr:b PIPE_R
             {:
-                if (!esNumerico(a) || !esNumerico(b)) {
+                if (!esNumerico(a.type) || !esNumerico(b.type)) {
                     errorSemantico(
                         "Error semántico: operandos de 'greather_te' deben ser numéricos, se encontró " +
-                        a + " y " + b + " en línea " + aleft
+                        a.type + " y " + b.type + " en línea " + aleft
                     );
                 }
-                RESULT = DataType.BOOL;
+                RESULT = emitBinary("GE", a, b);
             :}
            ;
 
@@ -990,8 +1309,10 @@ eq_operand ::= num_expr:n  {: RESULT = n; :}
              | bool_expr:b {: RESULT = b; :}
              ;
 
-bool_literal ::= TRUE  {: RESULT = DataType.BOOL; :}
-               | FALSE {: RESULT = DataType.BOOL; :}
+bool_literal ::= TRUE
+                 {: RESULT = new ExprAttr(DataType.BOOL, "true"); :}
+               | FALSE
+                 {: RESULT = new ExprAttr(DataType.BOOL, "false"); :}
                ;
 
 num_expr ::= sum_stage:s
@@ -999,99 +1320,90 @@ num_expr ::= sum_stage:s
            ;
 
 sum_stage ::= prod_stage:p sum_tail:t
-              {:
-                  if (t != null && !esNumerico(p)) {
-                      errorSemantico(
-                          "Error semántico: operando de operación aritmética no es numérico, se encontró " + p +
-                          " en línea " + pleft
-                      );
-                  }
-                  RESULT = t != null ? t : p;
-              :}
+              {: RESULT = fold(p, t); :}
             ;
+
 sum_tail ::= PLUS prod_stage:p sum_tail:t
              {:
-                 if (!esNumerico(p)) {
+                 if (!esNumerico(p.type)) {
                      errorSemantico(
-                         "Error semántico: operando de '+' no es numérico, se encontró " + p +
+                         "Error semántico: operando de '+' no es numérico, se encontró " + p.type +
                          " en línea " + pleft
                      );
                  }
-                 RESULT = t != null ? t : p;
+                 t.add(0, new Step("+", p));
+                 RESULT = t;
              :}
            | MINUS prod_stage:p sum_tail:t
              {:
-                 if (!esNumerico(p)) {
+                 if (!esNumerico(p.type)) {
                      errorSemantico(
-                         "Error semántico: operando de '-' no es numérico, se encontró " + p +
+                         "Error semántico: operando de '-' no es numérico, se encontró " + p.type +
                          " en línea " + pleft
                      );
                  }
-                 RESULT = t != null ? t : p;
+                 t.add(0, new Step("-", p));
+                 RESULT = t;
              :}
            | /* empty */
-             {: RESULT = null; :}
+             {: RESULT = new java.util.ArrayList(); :}
            ;
+
 prod_stage ::= power_stage:p prod_tail:t
-               {:
-                   if (t != null && !esNumerico(p)) {
-                       errorSemantico(
-                           "Error semántico: operando de operación aritmética no es numérico, se encontró " + p +
-                           " en línea " + pleft
-                       );
-                   }
-                   RESULT = t != null ? t : p;
-               :}
+               {: RESULT = fold(p, t); :}
              ;
 
 prod_tail ::= TIMES power_stage:p prod_tail:t
               {:
-                  if (!esNumerico(p)) {
+                  if (!esNumerico(p.type)) {
                       errorSemantico(
-                          "Error semántico: operando de '*' no es numérico, se encontró " + p +
+                          "Error semántico: operando de '*' no es numérico, se encontró " + p.type +
                           " en línea " + pleft
                       );
                   }
-                  RESULT = t != null ? t : p;
+                  t.add(0, new Step("*", p));
+                  RESULT = t;
               :}
             | DIV power_stage:p prod_tail:t
               {:
-                  if (!esNumerico(p)) {
+                  if (!esNumerico(p.type)) {
                       errorSemantico(
-                          "Error semántico: operando de '/' no es numérico, se encontró " + p +
+                          "Error semántico: operando de '/' no es numérico, se encontró " + p.type +
                           " en línea " + pleft
                       );
                   }
-                  RESULT = t != null ? t : p;
+                  t.add(0, new Step("/", p));
+                  RESULT = t;
               :}
             | MOD power_stage:p prod_tail:t
               {:
-                  if (!esNumerico(p)) {
+                  if (!esNumerico(p.type)) {
                       errorSemantico(
-                          "Error semántico: operando de '%' no es numérico, se encontró " + p +
+                          "Error semántico: operando de '%' no es numérico, se encontró " + p.type +
                           " en línea " + pleft
                       );
                   }
-                  RESULT = t != null ? t : p;
+                  t.add(0, new Step("%", p));
+                  RESULT = t;
               :}
             | /* empty */
-              {: RESULT = null; :}
+              {: RESULT = new java.util.ArrayList(); :}
             ;
 
 power_stage ::= prefix_stage:p POW power_stage:pw
-                {: RESULT = p; :}
+                {: RESULT = emitBinary("^", p, pw); :}
               | prefix_stage:p
                 {: RESULT = p; :}
               ;
 
 prefix_stage ::= MINUS negative_literal:n
-                 {: RESULT = n; :}
+                 {: RESULT = emitUnary("NEG", n); :}
                | INC incrementable:i
-                 {: RESULT = DataType.INT; :}
+                 {: RESULT = emitUnary("INC", i); :}
                | DEC incrementable:i
-                 {: RESULT = DataType.INT; :}
+                 {: RESULT = emitUnary("DEC", i); :}
                | num_atom:n
-                 {: RESULT = n; :}  // ← sin verificación aquí
+                 {: RESULT = n; :}
                ;
 
 num_atom ::= numeric_literal:n
@@ -1099,29 +1411,46 @@ num_atom ::= numeric_literal:n
            | reference_expr:r
              {: RESULT = r; :}
            | array_access:a
-             {: RESULT = a; :}
+             {:
+                 String t = codigoIntermedio.newTemp();
+                 codigoIntermedio.add("ARRAY_LOAD", a.render(), "-", t);
+                 RESULT = new ExprAttr(a.type, t);
+             :}
            | PIPE_L num_expr:e PIPE_R
              {: RESULT = e; :}
            ;
 
-incrementable ::= IDENTIFIER ;
-
-negative_literal ::= INTEGER_LITERAL    {: RESULT = DataType.INT; :}
-                   | FLOAT_LITERAL      {: RESULT = DataType.FLOAT; :}
-                   | SCIENTIFIC_LITERAL {: RESULT = DataType.SCIENTIFIC; :}
-                   | FRACTION_LITERAL   {: RESULT = DataType.FRAC; :}
-                   ;
-
-numeric_literal ::= INTEGER_LITERAL    {: RESULT = DataType.INT; :}
-                  | FLOAT_LITERAL      {: RESULT = DataType.FLOAT; :}
-                  | SCIENTIFIC_LITERAL {: RESULT = DataType.SCIENTIFIC; :}
-                  | FRACTION_LITERAL   {: RESULT = DataType.FRAC; :}
+incrementable ::= IDENTIFIER:id
+                  {:
+                      SymbolInfo s = tablaSimbolos.lookup(id);
+                      RESULT = new ExprAttr(s != null ? s.getType() : DataType.UNKNOWN, id);
+                  :}
                   ;
 
-string_expr ::= STRING_LITERAL
-                {: RESULT = DataType.STRING; :}
+negative_literal ::= INTEGER_LITERAL:v
+                     {: RESULT = new ExprAttr(DataType.INT, v); :}
+                   | FLOAT_LITERAL:v
+                     {: RESULT = new ExprAttr(DataType.FLOAT, v); :}
+                   | SCIENTIFIC_LITERAL:v
+                     {: RESULT = new ExprAttr(DataType.SCIENTIFIC, v); :}
+                   | FRACTION_LITERAL:v
+                     {: RESULT = new ExprAttr(DataType.FRAC, v); :}
+                   ;
+
+numeric_literal ::= INTEGER_LITERAL:v
+                    {: RESULT = new ExprAttr(DataType.INT, v); :}
+                  | FLOAT_LITERAL:v
+                    {: RESULT = new ExprAttr(DataType.FLOAT, v); :}
+                  | SCIENTIFIC_LITERAL:v
+                    {: RESULT = new ExprAttr(DataType.SCIENTIFIC, v); :}
+                  | FRACTION_LITERAL:v
+                    {: RESULT = new ExprAttr(DataType.FRAC, v); :}
+                  ;
+
+string_expr ::= STRING_LITERAL:v
+                {: RESULT = new ExprAttr(DataType.STRING, v); :}
               ;
 
-char_expr ::= CHAR_LITERAL
-              {: RESULT = DataType.CHAR; :}
+char_expr ::= CHAR_LITERAL:v
+              {: RESULT = new ExprAttr(DataType.CHAR, v); :}
             ;

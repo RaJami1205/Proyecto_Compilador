@@ -125,13 +125,13 @@ public class App {
     private static void ejecutarCompleto(String archivo) throws Exception {
         String nombreBase = new File(archivo).getName().replaceAll("\\.[^.]+$", "");
         String archivoReporte = OUTPUT_DIR + "/" + nombreBase + "_reporte.txt";
+        String archivoIntermedio = OUTPUT_DIR + "/" + nombreBase + "_intermedio.txt";
 
         List<Symbol> tokens = new ArrayList<>();
 
         boolean lexicoOK = ejecutarLexer(archivo, tokens);
         boolean analisisOK = ejecutarParser(archivo);
 
-        // Nueva instancia del parser para reconstruir los datos del reporte
         Lexer lexer2 = new Lexer(new FileReader(archivo));
         Parser parser2 = new Parser(lexer2);
         parser2.parse();
@@ -148,13 +148,23 @@ public class App {
                 esValido
         );
 
+        if (!parser2.tieneErrores()) {
+            parser2.getCodigoIntermedio().exportToFile(archivoIntermedio);
+
+            System.out.println("\n=== CÓDIGO INTERMEDIO ===");
+            parser2.getCodigoIntermedio().printCode();
+            System.out.println("\nCódigo intermedio generado en: " + archivoIntermedio);
+        } else {
+            System.out.println("\nNo se generó código intermedio porque existen errores.");
+        }
+
         System.out.println("\nReporte generado en: " + archivoReporte);
 
         System.out.println("\n[RESUMEN FINAL]");
         System.out.println("------------------------------------------");
 
         if (esValido) {
-            System.out.println("El archivo es léxica y sintácticamente válido.");
+            System.out.println("El archivo es léxica, sintáctica y semánticamente válido.");
             System.out.println("Puede pasar a la siguiente etapa de traducción.");
         } else if (lexicoOK) {
             System.out.println("Léxico: OK");
