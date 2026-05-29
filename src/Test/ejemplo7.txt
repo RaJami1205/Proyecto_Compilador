@@ -1,24 +1,24 @@
 empty~__main__<||>|:
     int~x!
+    int~y!
     x<-10!
 
     if~<|less_t<|x,20|>|>|:
         cout~"dentro del if", x!
-        y<-!
-        psas
+        y<-10!
     :|
 
     do~|:
         x<-x+1!
         cout~"iterando", x!
-        int~!
+        int~x!
     :|~while~<|less_t<|x,30|>|>!
 
     switch~<|x|>~|:
         case~10~|:
             cout~"diez"!
         :|
-        case~~|:
+        case~20~|:
             break!
         :|
         default~|:

@@ -11,6 +11,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import Intermedio.GenerateTemp;
+import Intermedio.GenerateLabel;
+
 /**
  * Clase principal de prueba del compilador.
  * Permite ejecutar el análisis léxico, sintáctico y semántico
@@ -116,10 +119,17 @@ public class App {
         }
     }
 
+    /** Reinicia los generadores de identificadores de variables y etiquetas. */
+    private static void reiniciarGeneradoresIntermedios() {
+        GenerateTemp.reset();
+        GenerateLabel.reset();
+    }
+
     /**
      * Ejecuta el análisis completo:
      * 1. Léxico
      * 2. Sintáctico + semántico
+     * 3. Gneración de código intermedio
      * Luego imprime un resumen general.
      */
     private static void ejecutarCompleto(String archivo) throws Exception {
@@ -132,6 +142,8 @@ public class App {
         boolean lexicoOK = ejecutarLexer(archivo, tokens);
         boolean analisisOK = ejecutarParser(archivo);
 
+        // Segunda pasada para reconstruir datos del reporte y del código intermedio
+        reiniciarGeneradoresIntermedios();
         Lexer lexer2 = new Lexer(new FileReader(archivo));
         Parser parser2 = new Parser(lexer2);
         parser2.parse();
