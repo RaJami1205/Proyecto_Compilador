@@ -1,4 +1,5 @@
 package Semantico;
+
 // Tipos de datos reconocidos por el compilador 
 public enum DataType {
     INT,

@@ -9,40 +9,73 @@ import Semantico.*;
 import Intermedio.*;
 
 parser code {:
+    /** Lista de errores sintácticos detectados durante el parsing */
     private final List<String> erroresSintacticos = new ArrayList<>();
+
+    /** Lista de errores semánticos detectados durante el análisis */
     private final List<String> erroresSemanticos = new ArrayList<>();
+
+    /** Mapa que asocia símbolos con su nombre interno usado en el IR */
     private final java.util.Map<String, String> irNames = new java.util.HashMap<>();
 
+    /** Gestor principal de la tabla de símbolos */
     private final SymbolTableManager tablaSimbolos = new SymbolTableManager();
 
+    /** Referencia a la función actualmente en análisis */
     private SymbolInfo currentFunction = null;
+
+    /** Contador para generar nombres de scopes anónimos */
     private int blockCounter = 0;
+
+    /** Contador de profundidad dentro de estructuras de loop */
     private int dentroDeLoop = 0;
 
+    /** Generador de nombres de variables temporales */
+    private final IntermediateCode codigoIntermedio = new IntermediateCode();
+
+    /** Generador de etiquetas de bucles y condicionales */
+    private final Deque<String> breakLabels = new ArrayDeque<>();
+
+    /** Generador de etiquetas de estructuras de control */
+    private final Deque<String[]> ifLabels = new ArrayDeque<>();
+
+    /** Generador de etiquetas de estructuras de repetición */
+    private final Deque<String[]> loopLabels = new ArrayDeque<>();
+
+    /** Generador de etiquetas de estructuras de selección */
+    private final Deque<SwitchState> switchStack = new ArrayDeque<>();
+
+    /** Retorna la lista de errores sintácticos acumulados */
     public List<String> getErroresSintacticos() {
         return erroresSintacticos;
     }
 
+    /** Retorna la lista de errores semánticos acumulados */
     public List<String> getErroresSemanticos() {
         return erroresSemanticos;
     }
 
+    /** Indica si existe algún error sintáctico o semántico */
     public boolean tieneErrores() {
         return !erroresSintacticos.isEmpty() || !erroresSemanticos.isEmpty();
     }
 
+    /** Indica si existen errores semánticos */
     public boolean tieneErroresSemanticos() {
         return !erroresSemanticos.isEmpty();
     }
 
+    /** Retorna la tabla de símbolos construida durante el análisis */
     public SymbolTableManager getTablaSimbolos() {
         return tablaSimbolos;
     }
 
+    /** Obtiene el nombre de la función actual o un valor por defecto */
     private String nombreFuncionActual() {
     return currentFunction != null ? currentFunction.getLexeme() : "<desconocida>";
     }
 
+    /** Obtiene la línea de declaración de la función actual */
     private int lineaFuncionActual() {
         return currentFunction != null ? currentFunction.getLine() : -1;
     }
@@ -401,9 +434,19 @@ parser code {:
         System.out.println(msg);
     }
 
+    /**
+    * Verifica si dos tipos de datos son compatibles en el contexto de una operación.
+    * Se consideran compatibles:
+    * - INT y SCIENTIFIC
+    * - INT y FRAC
+    * - FLOAT y INT
+    *
+    * @param destino Tipo de dato destino de la operación
+    * @param origen  Tipo de dato origen de la operación
+    * @return true si son compatibles, false en caso contrario
+    */
     private boolean tiposCompatibles(DataType destino, DataType origen) {
         if (destino == origen) return true;
-        // INT y SCIENTIFIC son compatibles entre si
         if (destino == DataType.INT && origen == DataType.SCIENTIFIC) return true;
         if (destino == DataType.SCIENTIFIC && origen == DataType.INT) return true;
         // INT y FRAC son compatibles
@@ -413,6 +456,12 @@ parser code {:
             return false;
     }
 
+    /**
+    * Indica si un tipo de dato es numérico.
+    *
+    * @param t Tipo de dato a verificar
+    * @return true si es numérico, false en caso contrario
+    */
     private boolean esNumerico(DataType t) {
         return t == DataType.INT ||
             t == DataType.FLOAT ||
@@ -420,17 +469,12 @@ parser code {:
             t == DataType.FRAC;
     }
 
-    private final IntermediateCode codigoIntermedio = new IntermediateCode();
-
-    private final Deque<String> breakLabels = new ArrayDeque<>();
-    private final Deque<String[]> ifLabels = new ArrayDeque<>();
-    private final Deque<String[]> loopLabels = new ArrayDeque<>();
-    private final Deque<SwitchState> switchStack = new ArrayDeque<>();
-
+    /** Retorna el código intermedio construido durante el análisis */
     public IntermediateCode getCodigoIntermedio() {
         return codigoIntermedio;
     }
 
+    /** Clase auxiliar para almacenar información de una expresión */
     public static class ExprAttr {
         public final DataType type;
         public final String place;
@@ -441,6 +485,7 @@ parser code {:
         }
     }
 
+    /** Clase auxiliar para almacenar información de un identificador */
     public static class LValueAttr {
         public final String sourceName;   
         public final String irName;      
@@ -449,10 +494,12 @@ parser code {:
         public final String row;
         public final String col;
 
+        /** Construye un nuevo atributo de un identificador */
         public LValueAttr(String sourceName, String irName, DataType type) {
             this(sourceName, irName, type, false, null, null);
         }
 
+        /** Construye un nuevo atributo de un identificador */
         public LValueAttr(String sourceName, String irName, DataType type, boolean isArray, String row, String col) {
             this.sourceName = sourceName;
             this.irName = irName;
@@ -462,28 +509,33 @@ parser code {:
             this.col = col;
         }
 
+        /** Devuelve el nombre de la variable o el nombre del arreglo */
         public String render() {
             if (!isArray) return irName;
             return irName + "[" + row + "," + col + "]";
         }
     }
 
+    /** Clase auxiliar para almacenar información de una instrucción de secuencia */
     private static class Step {
         public final String op;
         public final ExprAttr expr;
 
+        /** Construye una nueva instrucción de secuencia */
         public Step(String op, ExprAttr expr) {
             this.op = op;
             this.expr = expr;
         }
     }
 
+    /** Clase auxiliar para almacenar información de un bloque de estructura de selección */
     private static class SwitchState {
         public final ExprAttr control;
         public final String endLabel;
         public String skipLabel;
         public boolean breakInCurrentCase;
 
+        /** Construye un nuevo bloque de estructura de selección */
         public SwitchState(ExprAttr control, String endLabel) {
             this.control = control;
             this.endLabel = endLabel;
@@ -492,6 +544,7 @@ parser code {:
         }
     }
 
+    /** Emite una instrucción de operación binaria */
     private ExprAttr emitBinary(String op, ExprAttr a, ExprAttr b) {
         DataType resultType;
 
@@ -509,6 +562,7 @@ parser code {:
         return new ExprAttr(resultType, t);
     }
 
+    /** Emite una instrucción de operación unaria */
     private ExprAttr emitUnary(String op, ExprAttr a) {
         String t = codigoIntermedio.newTemp();
         codigoIntermedio.add(op, a.place, "-", t);
@@ -519,6 +573,7 @@ parser code {:
         return new ExprAttr(a.type, t);
     }
 
+    /** Aplica una secuencia de instrucciones de operación binaria */
     private ExprAttr fold(ExprAttr base, ArrayList steps) {
         ExprAttr result = base;
         for (Object obj : steps) {
@@ -528,14 +583,17 @@ parser code {:
         return result;
     }
 
+    /** Crea una nueva fila de una matriz */
     private ArrayList nuevaFila() {
         return new ArrayList();
     }
 
+    /** Crea una nueva matriz */
     private ArrayList nuevaMatriz() {
         return new ArrayList();
     }
 
+    /** Promueve los tipos numéricos de dos operandos */
     private DataType promoverNumerico(DataType a, DataType b) {
         if (a == null || b == null) return DataType.UNKNOWN;
         if (a == DataType.UNKNOWN || b == DataType.UNKNOWN) return DataType.UNKNOWN;
@@ -547,6 +605,7 @@ parser code {:
         return DataType.INT;
     }
 
+    /** Marca un identificador como inicializado */
     private void marcarInicializado(String name, int line, int col) {
         SymbolInfo s = tablaSimbolos.lookup(name);
 
@@ -561,16 +620,19 @@ parser code {:
         s.setInitialized(true);
     }
 
+    /** Devuelve una clave única para un símbolo */
     private String symbolKey(SymbolInfo s) {
         if (s == null) return null;
         return s.getScopeName() + "::" + s.getLexeme() + "@" + s.getLine() + ":" + s.getColumn();
     }
 
+    /** Elimina caracteres no válidos de un nombre de scope */
     private String sanitizeScopeName(String name) {
         if (name == null) return "scope";
         return name.replaceAll("[^a-zA-Z0-9_]", "_");
     }
 
+    /** Genera un nombre único para un símbolo en el IR */
     private String buildIrName(SymbolInfo s) {
         if (s == null) return null;
 
@@ -585,11 +647,13 @@ parser code {:
         return s.getLexeme() + "_" + sanitizeScopeName(s.getScopeName());
     }
 
+    /** Registra un nombre único para un símbolo en el IR */
     private void registrarIrName(SymbolInfo s) {
         if (s == null) return;
         irNames.put(symbolKey(s), buildIrName(s));
     }
 
+    /** Obtiene el nombre único de un símbolo en el IR */
     private String getIrName(SymbolInfo s) {
         if (s == null) return null;
         return irNames.getOrDefault(symbolKey(s), s.getLexeme());
@@ -651,6 +715,7 @@ non terminal java.util.ArrayList array_init_opt;
 non terminal block_body;
 non terminal block_enter;
 non terminal loop_enter, loop_exit;
+
 start with program;
 
 program ::= function_prefix main_procedure function_suffix ;
