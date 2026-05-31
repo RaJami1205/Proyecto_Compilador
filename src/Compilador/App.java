@@ -1,28 +1,78 @@
 package Compilador;
 
+import java.io.File;
 import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.List;
+
 import java_cup.runtime.Symbol;
 
 import Sintactico.Lexer;
 import Sintactico.Parser;
 import Sintactico.sym;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
-import Intermedio.GenerateTemp;
 import Intermedio.GenerateLabel;
+import Intermedio.GenerateTemp;
 
 /**
  * Clase principal de prueba del compilador.
- * Permite ejecutar el análisis léxico, sintáctico y semántico
- * sobre un archivo fuente del lenguaje definido.
+ * Organiza la ejecución por etapas: léxica, sintáctica, semántica,
+ * tabla de símbolos y código intermedio.
  */
 public class App {
 
     /** Carpeta única de salida del proyecto */
     private static final String OUTPUT_DIR = "src/Output";
+
+    /**
+     * Resultado del análisis léxico.
+     * Guarda los tokens producidos y si hubo errores.
+     */
+    private static class LexResult {
+        private final List<Symbol> tokens;
+        private final List<String> erroresLexicos;
+        private final boolean exito;
+
+        public LexResult(List<Symbol> tokens, List<String> erroresLexicos, boolean exito) {
+            this.tokens = tokens;
+            this.erroresLexicos = erroresLexicos;
+            this.exito = exito;
+        }
+
+        public List<Symbol> getTokens() {
+            return tokens;
+        }
+
+        public List<String> getErroresLexicos() {
+            return erroresLexicos;
+        }
+
+        public boolean isExito() {
+            return exito;
+        }
+    }
+
+    /**
+     * Resultado del análisis del parser.
+     * Guarda el parser ya ejecutado y si hubo errores.
+     */
+    private static class ParseResult {
+        private final Parser parser;
+        private final boolean exito;
+
+        public ParseResult(Parser parser, boolean exito) {
+            this.parser = parser;
+            this.exito = exito;
+        }
+
+        public Parser getParser() {
+            return parser;
+        }
+
+        public boolean isExito() {
+            return exito;
+        }
+    }
 
     /**
      * Punto de entrada del programa.
@@ -53,15 +103,14 @@ public class App {
         System.out.println("------------------------------------------");
 
         try {
-            // Antes de cualquier ejecución, se limpia la carpeta de salida
             prepararCarpetaOutput();
 
             switch (mode) {
                 case "lex":
-                    // ejecutarLexer(archivo, new ArrayList<>());
+                    ejecutarSoloLexico(archivo);
                     break;
                 case "parse":
-                    ejecutarParser(archivo);
+                    ejecutarSoloParser(archivo);
                     break;
                 case "all":
                     ejecutarCompleto(archivo);
@@ -119,87 +168,119 @@ public class App {
         }
     }
 
-    /** Reinicia los generadores de identificadores de variables y etiquetas. */
+    /**
+     * Reinicia los generadores de temporales y etiquetas del código intermedio.
+     */
     private static void reiniciarGeneradoresIntermedios() {
         GenerateTemp.reset();
         GenerateLabel.reset();
     }
 
     /**
-     * Ejecuta el análisis completo:
+     * Ejecuta todas las etapas del compilador en orden:
      * 1. Léxico
-     * 2. Sintáctico + semántico
-     * 3. Gneración de código intermedio
-     * Luego imprime un resumen general.
+     * 2. Sintáctico
+     * 3. Semántico
+     * 4. Tabla de símbolos
+     * 5. Código intermedio
      */
     private static void ejecutarCompleto(String archivo) throws Exception {
-        String nombreBase = new File(archivo).getName().replaceAll("\\.[^.]+$", "");
-        String archivoReporte = OUTPUT_DIR + "/" + nombreBase + "_reporte.txt";
-        String archivoIntermedio = OUTPUT_DIR + "/" + nombreBase + "_intermedio.txt";
+        String archivoReporte = OUTPUT_DIR + "/" + "Reporte.txt";
+        String archivoIntermedio = OUTPUT_DIR + "/" + "codigo_Intermedio.txt";
 
-        List<Symbol> tokens = new ArrayList<>();
+        LexResult lexResult = analizarLexico(archivo, true);
 
-        boolean lexicoOK = ejecutarLexer(archivo, tokens);
-        boolean analisisOK = ejecutarParser(archivo);
+        ParseResult parseResult = null;
+        if (lexResult.isExito()) {
+            parseResult = analizarParser(archivo);
+            imprimirSeccionSintactica(parseResult.getParser());
+            imprimirSeccionSemantica(parseResult.getParser());
+            imprimirSeccionTablaSimbolos(parseResult.getParser());
+            imprimirSeccionCodigoIntermedio(parseResult.getParser(), archivoIntermedio);
+        } else {
+            imprimirTituloSeccion("[2] ANÁLISIS SINTÁCTICO");
+            System.out.println("Análisis sintáctico omitido por errores léxicos.");
 
-        // Segunda pasada para reconstruir datos del reporte y del código intermedio
-        reiniciarGeneradoresIntermedios();
-        Lexer lexer2 = new Lexer(new FileReader(archivo));
-        Parser parser2 = new Parser(lexer2);
-        parser2.parse();
+            imprimirTituloSeccion("[3] ANÁLISIS SEMÁNTICO");
+            System.out.println("Análisis semántico omitido por errores léxicos.");
 
-        boolean esValido = lexicoOK && analisisOK;
+            imprimirTituloSeccion("[4] TABLA DE SÍMBOLOS");
+            System.out.println("Tabla de símbolos no disponible porque el parser no fue ejecutado.");
+
+            imprimirTituloSeccion("[5] CÓDIGO INTERMEDIO");
+            System.out.println("Código intermedio no generado por errores léxicos.");
+        }
+
+        Parser parserParaReporte = (parseResult != null) ? parseResult.getParser() : null;
 
         ReporteCompilador.generarReporte(
                 archivo,
                 archivoReporte,
-                tokens,
-                parser2.getTablaSimbolos(),
-                lexer2.getErroresLexicos(),
-                parser2.getErroresSintacticos(),
-                esValido
+                lexResult.getTokens(),
+                parserParaReporte != null ? parserParaReporte.getTablaSimbolos() : null,
+                lexResult.getErroresLexicos(),
+                parserParaReporte != null ? parserParaReporte.getErroresSintacticos() : new ArrayList<>(),
+                lexResult.isExito() && parseResult != null && parseResult.isExito()
         );
-
-        if (!parser2.tieneErrores()) {
-            parser2.getCodigoIntermedio().exportToFile(archivoIntermedio);
-
-            System.out.println("\n=== CÓDIGO INTERMEDIO ===");
-            parser2.getCodigoIntermedio().printCode();
-            System.out.println("\nCódigo intermedio generado en: " + archivoIntermedio);
-        } else {
-            System.out.println("\nNo se generó código intermedio porque existen errores.");
-        }
 
         System.out.println("\nReporte generado en: " + archivoReporte);
 
         System.out.println("\n[RESUMEN FINAL]");
         System.out.println("------------------------------------------");
 
-        if (esValido) {
+        if (lexResult.isExito() && parseResult != null && parseResult.isExito()) {
             System.out.println("El archivo es léxica, sintáctica y semánticamente válido.");
             System.out.println("Puede pasar a la siguiente etapa de traducción.");
-        } else if (lexicoOK) {
-            System.out.println("Léxico: OK");
-            System.out.println("Sintáctico/Semántico: contiene errores (ver arriba).");
+        } else if (!lexResult.isExito()) {
+            System.out.println("Léxico: contiene errores.");
+            System.out.println("Las etapas posteriores fueron omitidas.");
         } else {
-            System.out.println("El archivo contiene errores léxicos y/o semánticos (ver arriba).");
+            System.out.println("Léxico: OK");
+            System.out.println("Sintáctico/Semántico: contiene errores.");
         }
     }
 
     /**
-     * Ejecuta únicamente el análisis léxico.
-     * Recorre todos los tokens del archivo y muestra sus datos en consola.
-     * También imprime los errores léxicos acumulados por el lexer.
-     *
-     * @return true si no hubo errores léxicos, false en caso contrario
+     * Ejecuta únicamente el análisis léxico y muestra sus resultados.
      */
-    private static boolean ejecutarLexer(String archivo, List<Symbol> tokens) throws Exception {
-        System.out.println("\n[1] ANALISIS LÉXICO");
-        System.out.println("------------------------------------------");
+    private static void ejecutarSoloLexico(String archivo) throws Exception {
+        analizarLexico(archivo, true);
+    }
+
+    /**
+     * Ejecuta parser, semántica, tabla de símbolos y código intermedio.
+     * Si hay errores léxicos previos, el parser no se ejecuta.
+     */
+    private static void ejecutarSoloParser(String archivo) throws Exception {
+        LexResult lexResult = analizarLexico(archivo, false);
+
+        if (!lexResult.isExito()) {
+            imprimirTituloSeccion("[2] ANÁLISIS SINTÁCTICO");
+            System.out.println("No se ejecutó el parser porque el archivo contiene errores léxicos.");
+            return;
+        }
+
+        ParseResult parseResult = analizarParser(archivo);
+        imprimirSeccionSintactica(parseResult.getParser());
+        imprimirSeccionSemantica(parseResult.getParser());
+        imprimirSeccionTablaSimbolos(parseResult.getParser());
+        imprimirSeccionCodigoIntermedio(parseResult.getParser(), OUTPUT_DIR + "/codigo_Intermedio.txt");
+    }
+
+    /**
+     * Ejecuta el análisis léxico.
+     * Puede imprimir los tokens en consola según el modo de uso.
+     *
+     * @param archivo Ruta del archivo fuente
+     * @param imprimirTokens true si se desea mostrar cada token en consola
+     * @return Resultado del análisis léxico
+     */
+    private static LexResult analizarLexico(String archivo, boolean imprimirTokens) throws Exception {
+        imprimirTituloSeccion("[1] ANÁLISIS LÉXICO");
 
         Lexer lexer = new Lexer(new FileReader(archivo));
+        List<Symbol> tokens = new ArrayList<>();
         Symbol token;
-        boolean hayErrores = false;
 
         while ((token = lexer.next_token()).sym != sym.EOF) {
             if (token.value == null) {
@@ -207,62 +288,126 @@ public class App {
             }
             tokens.add(token);
 
-            String tokenName = symToString(token.sym);
-            String lexema = (token.value != null) ? token.value.toString() : lexer.yytext();
+            if (imprimirTokens) {
+                String tokenName = symToString(token.sym);
+                String lexema = (token.value != null) ? token.value.toString() : lexer.yytext();
 
-            System.out.printf("Línea %-4d Col %-4d %-22s -> %s%n",
-                    token.left, token.right, tokenName, lexema);
-        }
-
-        if (!lexer.getErroresLexicos().isEmpty()) {
-            hayErrores = true;
-            System.out.println("\n--- Errores léxicos encontrados ---");
-            lexer.getErroresLexicos().forEach(e -> System.out.println("  " + e));
-        }
-
-        System.out.println("\nResultado léxico: " + (hayErrores ? "incorrecto." : "correcto."));
-        return !hayErrores;
-    }
-
-    /**
-     * Ejecuta el análisis sintáctico y semántico.
-     * El parser también construye la tabla de símbolos y la imprime al final.
-     *
-     * @return true si no hubo errores sintácticos ni semánticos, false en caso contrario
-     */
-    private static boolean ejecutarParser(String archivo) throws Exception {
-        System.out.println("\n[2] ANALISIS SINTACTICO + TABLA DE SÍMBOLOS");
-        System.out.println("---------------------------------------------");
-
-        Lexer lexer = new Lexer(new FileReader(archivo));
-        Parser parser = new Parser(lexer);
-
-        parser.parse();
-
-        if (!parser.getErroresSintacticos().isEmpty()) {
-            System.out.println("--- Errores sintácticos encontrados ---");
-            int i = 1;
-            for (String e : parser.getErroresSintacticos()) {
-                System.out.println("  [S" + i + "] " + e);
-                i++;
+                System.out.printf("Línea %-4d Col %-4d %-22s -> %s%n",
+                        token.left, token.right, tokenName, lexema);
             }
         }
 
-        if (!parser.getErroresSemanticos().isEmpty()) {
-            System.out.println("--- Errores semánticos encontrados ---");
-            int i = 1;
-            for (String e : parser.getErroresSemanticos()) {
-                System.out.println("  [M" + i + "] " + e);
-                i++;
+        List<String> erroresLexicos = new ArrayList<>(lexer.getErroresLexicos());
+
+        if (erroresLexicos.isEmpty()) {
+            System.out.println("\nResultado léxico: correcto.");
+        } else {
+            System.out.println("--- Errores léxicos encontrados ---");
+            for (String error : erroresLexicos) {
+                System.out.println("  " + error);
+            }
+            System.out.println("\nResultado léxico: incorrecto.");
         }
-}
 
+        return new LexResult(tokens, erroresLexicos, erroresLexicos.isEmpty());
+    }
+
+    /**
+     * Ejecuta el parser y devuelve el resultado del análisis sintáctico-semántico.
+     *
+     * @param archivo Ruta del archivo fuente
+     * @return Resultado del parser ya ejecutado
+     */
+    private static ParseResult analizarParser(String archivo) throws Exception {
+        reiniciarGeneradoresIntermedios();
+
+        Lexer lexer = new Lexer(new FileReader(archivo));
+        Parser parser = new Parser(lexer);
+        parser.parse();
+
+        return new ParseResult(parser, !parser.tieneErrores());
+    }
+
+    /**
+     * Imprime la sección de errores sintácticos.
+     *
+     * @param parser Parser ya ejecutado
+     */
+    private static void imprimirSeccionSintactica(Parser parser) {
+        imprimirTituloSeccion("[2] ANÁLISIS SINTÁCTICO");
+
+        if (parser.getErroresSintacticos().isEmpty()) {
+            System.out.println("No se encontraron errores sintácticos.");
+            return;
+        }
+
+        System.out.println("--- Errores sintácticos encontrados ---");
+        int i = 1;
+        for (String error : parser.getErroresSintacticos()) {
+            System.out.println("  [S" + i + "] " + error);
+            i++;
+        }
+    }
+
+    /**
+     * Imprime la sección de errores semánticos.
+     *
+     * @param parser Parser ya ejecutado
+     */
+    private static void imprimirSeccionSemantica(Parser parser) {
+        imprimirTituloSeccion("[3] ANÁLISIS SEMÁNTICO");
+
+        if (parser.getErroresSemanticos().isEmpty()) {
+            System.out.println("No se encontraron errores semánticos.");
+            return;
+        }
+
+        System.out.println("--- Errores semánticos encontrados ---");
+        int i = 1;
+        for (String error : parser.getErroresSemanticos()) {
+            System.out.println("  [M" + i + "] " + error);
+            i++;
+        }
+    }
+
+    /**
+     * Imprime la tabla de símbolos generada por el parser.
+     *
+     * @param parser Parser ya ejecutado
+     */
+    private static void imprimirSeccionTablaSimbolos(Parser parser) {
+        imprimirTituloSeccion("[4] TABLA DE SÍMBOLOS");
         System.out.println(parser.getTablaSimbolos().toPrettyString());
+    }
 
-        System.out.println("\nResultado global: " +
-                (parser.tieneErrores() ? "incorrecto." : "correcto."));
+    /**
+     * Imprime y exporta el código intermedio si no hubo errores.
+     *
+     * @param parser Parser ya ejecutado
+     * @param archivoIntermedio Ruta de salida del archivo de código intermedio
+     */
+    private static void imprimirSeccionCodigoIntermedio(Parser parser, String archivoIntermedio) {
+        imprimirTituloSeccion("[5] CÓDIGO INTERMEDIO");
 
-        return !parser.tieneErrores();
+        if (parser.tieneErrores()) {
+            System.out.println("No se generó código intermedio porque existen errores.");
+            return;
+        }
+
+        parser.getCodigoIntermedio().printCode();
+        parser.getCodigoIntermedio().exportToFile(archivoIntermedio);
+        System.out.println("\nCódigo intermedio generado en: " + archivoIntermedio);
+    }
+
+    /**
+     * Imprime un encabezado uniforme para cada etapa del compilador.
+     *
+     * @param titulo Título de la sección
+     */
+    private static void imprimirTituloSeccion(String titulo) {
+        System.out.println();
+        System.out.println(titulo);
+        System.out.println("------------------------------------------");
     }
 
     /**
