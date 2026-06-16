@@ -45,6 +45,8 @@ parser code {:
     /** Generador de etiquetas de estructuras de selección */
     private final Deque<SwitchState> switchStack = new ArrayDeque<>();
 
+    private boolean currentFunctionHasReturn = false;
+
     /** Retorna la lista de errores sintácticos acumulados */
     public List<String> getErroresSintacticos() {
         return erroresSintacticos;
@@ -158,9 +160,17 @@ parser code {:
     */
     private void cerrarFuncion() {
         if (currentFunction != null) {
+            if (currentFunction.getType() != DataType.EMPTY && !currentFunctionHasReturn) {
+                errorSemantico(
+                    "Error semántico: función '" + currentFunction.getLexeme() +
+                    "' debe retornar un valor de tipo " + currentFunction.getType() +
+                    " pero no tiene 'return' en línea " + currentFunction.getLine()
+                );
+            }
             codigoIntermedio.add("FUNC_END", currentFunction.getLexeme(), "-", "-");
         }
         currentFunction = null;
+        currentFunctionHasReturn = false;
         tablaSimbolos.exitScope();
     }
 
@@ -215,6 +225,15 @@ parser code {:
     * @param col  Columna de declaración en el archivo fuente.
     */
     private void declararIdentificador(String name, DataType type, DeclTailInfo tail, int line, int col) {
+        // verificar si existe en el scope padre (parámetros de la función)
+        ScopeTable parent = tablaSimbolos.currentScope().getParent();
+        if (parent != null && parent.containsLocal(name)) {
+            errorSemantico(
+                "Error semántico: identificador '" + name +
+                "' ya fue declarado como parámetro en línea " + line + ", columna " + col
+            );
+            return;
+        }
         SymbolKind kind = tail.isArray() ? SymbolKind.ARRAY : SymbolKind.VARIABLE;
 
         SymbolInfo info = new SymbolInfo(
@@ -659,6 +678,52 @@ parser code {:
         return irNames.getOrDefault(symbolKey(s), s.getLexeme());
     }
 
+    private boolean sonMismoGrupo(DataType a, DataType b) {
+        if (a == b) return true;
+        if (esNumerico(a) && esNumerico(b)) return true;
+        if (a == DataType.BOOL && b == DataType.BOOL) return true;
+        if (a == DataType.CHAR && b == DataType.CHAR) return true;
+        if (a == DataType.STRING && b == DataType.STRING) return true;
+        return false;
+    }
+    private void verificarMatriz(String nombre, DataType tipoArreglo, ArrayList matriz, 
+                                int dimFilas, int dimCols, int line) {
+        // verificar número de filas
+        if (matriz.size() != dimFilas) {
+            errorSemantico(
+                "Error semántico: arreglo '" + nombre + "' declarado con " + dimFilas +
+                " filas pero se inicializó con " + matriz.size() +
+                " en línea " + line
+            );
+        }
+
+            // verificar cada fila
+            for (int i = 0; i < matriz.size(); i++) {
+                ArrayList fila = (ArrayList) matriz.get(i);
+
+                // verificar número de columnas
+                if (fila.size() != dimCols) {
+                    errorSemantico(
+                        "Error semántico: fila " + i + " del arreglo '" + nombre + "' declarada con " +
+                        dimCols + " columnas pero se inicializó con " + fila.size() +
+                        " en línea " + line
+                    );
+                }
+
+                // verificar tipo de cada celda
+                for (int j = 0; j < fila.size(); j++) {
+                    ExprAttr celda = (ExprAttr) fila.get(j);
+                    if (celda.type != null && celda.type != DataType.UNKNOWN &&
+                        !tiposCompatibles(tipoArreglo, celda.type)) {
+                        errorSemantico(
+                            "Error semántico: celda [" + i + "," + j + "] del arreglo '" + nombre +
+                            "' es de tipo " + celda.type + " pero se esperaba " + tipoArreglo +
+                            " en línea " + line
+                        );
+                    }
+                }
+            }
+    }
 :};
 
 terminal INT_T, FLOAT_T, BOOL_T, CHAR_T, STRING_T, SCIENTIFIC_T, FRAC_T, EMPTY_T;
@@ -854,23 +919,17 @@ declaration_stmt ::= typed_decl ;
 typed_decl ::= INT_T TILDE IDENTIFIER:id int_decl_tail:t
                {:
                    declararIdentificador(id, DataType.INT, t, idleft, idright);
-                   if (t.getExprType() != null && !tiposCompatibles(DataType.INT, t.getExprType())) {
-                       errorSemantico(
-                           "Error semántico: tipos incompatibles en declaración de '" + id +
-                           "', se esperaba INT pero se encontró " + t.getExprType() +
-                           " en línea " + idleft
-                       );
+                   if (t.isArray() && t.getMatrixInit() != null) {
+                       verificarMatriz(id, DataType.INT, t.getMatrixInit(), 
+                                      t.getDim1(), t.getDim2(), idleft);
                    }
                :}
              | FLOAT_T TILDE IDENTIFIER:id float_decl_tail:t
                {:
                    declararIdentificador(id, DataType.FLOAT, t, idleft, idright);
-                   if (t.getExprType() != null && !tiposCompatibles(DataType.FLOAT, t.getExprType())) {
-                       errorSemantico(
-                           "Error semántico: tipos incompatibles en declaración de '" + id +
-                           "', se esperaba FLOAT pero se encontró " + t.getExprType() +
-                           " en línea " + idleft
-                       );
+                   if (t.isArray() && t.getMatrixInit() != null) {
+                       verificarMatriz(id, DataType.FLOAT, t.getMatrixInit(),
+                                      t.getDim1(), t.getDim2(), idleft);
                    }
                :}
              | non_array_type:tp TILDE IDENTIFIER:id other_decl_tail:t
@@ -1235,6 +1294,12 @@ do_while_stmt ::= DO TILDE loop_enter block TILDE WHILE TILDE PIPE_L condition:c
 
 switch_stmt ::= SWITCH TILDE PIPE_L expression:e PIPE_R TILDE
                 {:
+                    if (e != null && e.type != DataType.INT && e.type != DataType.CHAR && e.type != DataType.UNKNOWN) {
+                        errorSemantico(
+                            "Error semántico: expresión del 'switch' debe ser de tipo INT o CHAR, se encontró " + e.type +
+                            " en línea " + eleft
+                        );
+                    }
                     String endLabel = codigoIntermedio.newLabel("switch_end");
                     breakLabels.push(endLabel);
                     switchStack.push(new SwitchState(e, endLabel));
@@ -1328,6 +1393,7 @@ case_constant ::= INTEGER_LITERAL:v
 
 return_stmt ::= RETURN:r TILDE expression:e
                 {:
+                    currentFunctionHasReturn = true;
                     if (currentFunction != null && e != null && e.type != DataType.UNKNOWN) {
                         if (!tiposCompatibles(currentFunction.getType(), e.type)) {
                             errorSemantico(
@@ -1436,7 +1502,7 @@ rel_expr ::= EQUAL PIPE_L eq_operand:a COMMA eq_operand:b PIPE_R
              {:
                  if (a.type != null && b.type != null &&
                      a.type != DataType.UNKNOWN && b.type != DataType.UNKNOWN &&
-                     a.type != b.type) {
+                     !sonMismoGrupo(a.type, b.type)) {
                      errorSemantico(
                          "Error semántico: operandos de 'equal' deben ser del mismo tipo, se encontró " +
                          a.type + " y " + b.type + " en línea " + aleft
@@ -1448,7 +1514,7 @@ rel_expr ::= EQUAL PIPE_L eq_operand:a COMMA eq_operand:b PIPE_R
              {:
                  if (a.type != null && b.type != null &&
                      a.type != DataType.UNKNOWN && b.type != DataType.UNKNOWN &&
-                     a.type != b.type) {
+                     !sonMismoGrupo(a.type, b.type)) {
                      errorSemantico(
                          "Error semántico: operandos de 'n_equal' deben ser del mismo tipo, se encontró " +
                          a.type + " y " + b.type + " en línea " + aleft

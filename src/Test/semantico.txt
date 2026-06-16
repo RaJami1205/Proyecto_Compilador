@@ -1,12 +1,101 @@
 empty ~ __main__ <| |> |:
+    ¡¡ error de tipo en celda
+    int ~ matrizA << 2, 2 >> <- |:
+        |: 1, 2 :|,
+        |: 3, 3.14 :|
+    :| !
+
+    ¡¡ error de tamaño en filas
+    int ~ matrizB << 2, 2 >> <- |:
+        |: 1, 2 :|,
+        |: 3, 4 :|,
+        |: 5, 6 :|
+    :| !
+
+    ¡¡ error de tamaño en columnas
+    int ~ matrizC << 2, 2 >> <- |:
+        |: 1, 2, 3 :|,
+        |: 4, 5, 6 :|
+    :| !
+:|
+
+{-
+int ~ sumar <| int ~ a, int ~ b |> |:
+    int ~ a <- 5 !
+    return ~ a + b !
+:|
+
+empty ~ __main__ <| |> |:
+    int ~ x <- sumar <| 1, 2 |> !
+:|
+¡¡ Prueba 1 - funcion sin return (debe ser error)
+int ~ sumar <| int ~ a, int ~ b |> |:
+    int ~ x <- a + b !
+:|
+
+¡¡ Prueba 2 - funcion con return (debe ser valido)
+float ~ multiplicar <| float ~ a, float ~ b |> |:
+    return ~ a * b !
+:|
+
+¡¡ Prueba 3 - main sin return (debe ser valido, es EMPTY)
+empty ~ __main__ <| |> |:
+    int ~ x <- multiplicar <| 2.0, 3.0 |> !
+:|
+empty ~ __main__ <| |> |:
+    float ~ x <- 3.14 !
+    bool ~ flag <- true !
+    switch ~ <| x |> ~ |:
+        default ~ |:
+            cout ~ "caso default" !
+        :|
+    :|
+    switch ~ <| flag |> ~ |:
+        default ~ |:
+            cout ~ "caso default" !
+        :|
+    :|
+:|
+¡¡ Prueba 1 - equal con tipos del mismo grupo numerico (debe ser valido)
+empty ~ __main__ <| |> |:
+    int ~ x <- 5 !
+    float ~ y <- 3.14 !
+    bool ~ r1 <- equal <| x, y |> !
+:|
+¡¡ Prueba 2 - equal con tipos de diferente grupo (debe ser error)
+empty ~ __main__ <| |> |:
+    int ~ x <- 5 !
+    bool ~ r1 <- equal <| x, true |> !
+    bool ~ r2 <- equal <| x, "hola" |> !
+:|
+¡¡ Prueba 3 - n_equal con tipos del mismo grupo (debe ser valido)
+empty ~ __main__ <| |> |:
+    int ~ x <- 5 !
+    int ~ y <- 3e2 !
+    bool ~ r1 <- n_equal <| x, y |> !
+:|
+¡¡ Prueba 4 - relacionales con tipos numericos mixtos (debe ser valido)
+empty ~ __main__ <| |> |:
+    int ~ x <- 5 !
+    float ~ y <- 3.14 !
+    bool ~ r1 <- less_t <| x, y |> !
+    bool ~ r2 <- greather_t <| y, x |> !
+    bool ~ r3 <- less_te <| x, 3e2 |> !
+    bool ~ r4 <- greather_te <| y, 5/2 |> !
+:|
+
+¡¡ Prueba 5 - operaciones aritmeticas mixtas (debe ser valido)
+empty ~ __main__ <| |> |:
+    int ~ x <- 5 !
+    float ~ y <- 3.14 !
+    float ~ resultado <- x + y !
+:|
+empty ~ __main__ <| |> |:
     int ~ x <- 3.14 !
     float ~ y <- "hola" !
     bool ~ flag <- 10 !
     char ~ letra <- true !
 :|
-
-
-{-
 
 empty ~ __main__ <| |> |:
     int ~ x <- 5 !
