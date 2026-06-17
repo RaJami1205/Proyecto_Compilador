@@ -465,14 +465,7 @@ parser code {:
     * @return true si son compatibles, false en caso contrario
     */
     private boolean tiposCompatibles(DataType destino, DataType origen) {
-        if (destino == origen) return true;
-        if (destino == DataType.INT && origen == DataType.SCIENTIFIC) return true;
-        if (destino == DataType.SCIENTIFIC && origen == DataType.INT) return true;
-        // INT y FRAC son compatibles
-        if (destino == DataType.INT && origen == DataType.FRAC) return true;
-        if (destino == DataType.FRAC && origen == DataType.INT) return true;
-        if (destino == DataType.FLOAT && origen == DataType.INT) return true;
-            return false;
+        return destino == origen;
     }
 
     /**
@@ -724,6 +717,8 @@ parser code {:
                 }
             }
     }
+    
+
 :};
 
 terminal INT_T, FLOAT_T, BOOL_T, CHAR_T, STRING_T, SCIENTIFIC_T, FRAC_T, EMPTY_T;
@@ -919,14 +914,28 @@ declaration_stmt ::= typed_decl ;
 typed_decl ::= INT_T TILDE IDENTIFIER:id int_decl_tail:t
                {:
                    declararIdentificador(id, DataType.INT, t, idleft, idright);
+                   if (t.getExprType() != null && !tiposCompatibles(DataType.INT, t.getExprType())) {
+                       errorSemantico(
+                           "Error semántico: tipos incompatibles en declaración de '" + id +
+                           "', se esperaba INT pero se encontró " + t.getExprType() +
+                           " en línea " + idleft
+                       );
+                   }
                    if (t.isArray() && t.getMatrixInit() != null) {
-                       verificarMatriz(id, DataType.INT, t.getMatrixInit(), 
+                       verificarMatriz(id, DataType.INT, t.getMatrixInit(),
                                       t.getDim1(), t.getDim2(), idleft);
                    }
                :}
              | FLOAT_T TILDE IDENTIFIER:id float_decl_tail:t
                {:
                    declararIdentificador(id, DataType.FLOAT, t, idleft, idright);
+                   if (t.getExprType() != null && !tiposCompatibles(DataType.FLOAT, t.getExprType())) {
+                       errorSemantico(
+                           "Error semántico: tipos incompatibles en declaración de '" + id +
+                           "', se esperaba FLOAT pero se encontró " + t.getExprType() +
+                           " en línea " + idleft
+                       );
+                   }
                    if (t.isArray() && t.getMatrixInit() != null) {
                        verificarMatriz(id, DataType.FLOAT, t.getMatrixInit(),
                                       t.getDim1(), t.getDim2(), idleft);
@@ -1170,7 +1179,14 @@ read_target ::= IDENTIFIER:id
                 {:
                     usarVariable(id, idleft, idright);
                     SymbolInfo s = tablaSimbolos.lookup(id);
-
+                    if (s != null && s.getType() != DataType.INT && 
+                        s.getType() != DataType.FLOAT &&
+                        s.getType() != DataType.UNKNOWN) {
+                        errorSemantico(
+                            "Error semántico: 'cin' solo puede leer variables de tipo INT o FLOAT, " +
+                            "se encontró " + s.getType() + " para '" + id + "' en línea " + idleft
+                        );
+                    }
                     String ir = (s != null) ? getIrName(s) : id;
                     DataType t = (s != null) ? s.getType() : DataType.UNKNOWN;
 
@@ -1579,7 +1595,20 @@ num_expr ::= sum_stage:s
            ;
 
 sum_stage ::= prod_stage:p sum_tail:t
-              {: RESULT = fold(p, t); :}
+              {:
+                  for (Object obj : t) {
+                      Step s = (Step) obj;
+                      if (p.type != null && s.expr.type != null &&
+                          p.type != DataType.UNKNOWN && s.expr.type != DataType.UNKNOWN &&
+                          !tiposCompatibles(p.type, s.expr.type)) {
+                          errorSemantico(
+                              "Error semántico: operandos de '" + s.op + "' deben ser del mismo tipo, " +
+                              "se encontró " + p.type + " y " + s.expr.type + " en línea " + pleft
+                          );
+                      }
+                  }
+                  RESULT = fold(p, t);
+              :}
             ;
 
 sum_tail ::= PLUS prod_stage:p sum_tail:t
@@ -1609,7 +1638,20 @@ sum_tail ::= PLUS prod_stage:p sum_tail:t
            ;
 
 prod_stage ::= power_stage:p prod_tail:t
-               {: RESULT = fold(p, t); :}
+               {:
+                   for (Object obj : t) {
+                       Step s = (Step) obj;
+                       if (p.type != null && s.expr.type != null &&
+                           p.type != DataType.UNKNOWN && s.expr.type != DataType.UNKNOWN &&
+                           !tiposCompatibles(p.type, s.expr.type)) {
+                           errorSemantico(
+                               "Error semántico: operandos de '" + s.op + "' deben ser del mismo tipo, " +
+                               "se encontró " + p.type + " y " + s.expr.type + " en línea " + pleft
+                           );
+                       }
+                   }
+                   RESULT = fold(p, t);
+               :}
              ;
 
 prod_tail ::= TIMES power_stage:p prod_tail:t
@@ -1636,9 +1678,9 @@ prod_tail ::= TIMES power_stage:p prod_tail:t
               :}
             | MOD power_stage:p prod_tail:t
               {:
-                  if (!esNumerico(p.type)) {
+                  if (p.type != DataType.INT && p.type != DataType.UNKNOWN) {
                       errorSemantico(
-                          "Error semántico: operando de '%' no es numérico, se encontró " + p.type +
+                          "Error semántico: operando de '%' debe ser de tipo INT, se encontró " + p.type +
                           " en línea " + pleft
                       );
                   }
@@ -1648,9 +1690,22 @@ prod_tail ::= TIMES power_stage:p prod_tail:t
             | /* empty */
               {: RESULT = new java.util.ArrayList(); :}
             ;
-
 power_stage ::= prefix_stage:p POW power_stage:pw
-                {: RESULT = emitBinary("^", p, pw); :}
+                {:
+                    if (p.type != DataType.INT && p.type != DataType.UNKNOWN) {
+                        errorSemantico(
+                            "Error semántico: base de '^' debe ser de tipo INT, se encontró " + p.type +
+                            " en línea " + pleft
+                        );
+                    }
+                    if (pw.type != DataType.INT && pw.type != DataType.UNKNOWN) {
+                        errorSemantico(
+                            "Error semántico: exponente de '^' debe ser de tipo INT, se encontró " + pw.type +
+                            " en línea " + pwleft
+                        );
+                    }
+                    RESULT = emitBinary("POW", p, pw);
+                :}
               | prefix_stage:p
                 {: RESULT = p; :}
               ;

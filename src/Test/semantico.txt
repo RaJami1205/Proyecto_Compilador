@@ -1,4 +1,15 @@
 empty ~ __main__ <| |> |:
+    int ~ a <- 2 !
+    float ~ b <- 3.14 !
+    int ~ c <- a ^ a !      ¡¡ valido
+    int ~ d <- a % a !      ¡¡ valido
+    float ~ e <- b ^ b !    ¡¡ error
+    float ~ f <- b % b !    ¡¡ error
+:|
+
+
+{-
+empty ~ __main__ <| |> |:
     ¡¡ error de tipo en celda
     int ~ matrizA << 2, 2 >> <- |:
         |: 1, 2 :|,
@@ -19,7 +30,6 @@ empty ~ __main__ <| |> |:
     :| !
 :|
 
-{-
 int ~ sumar <| int ~ a, int ~ b |> |:
     int ~ a <- 5 !
     return ~ a + b !
