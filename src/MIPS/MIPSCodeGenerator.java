@@ -931,6 +931,24 @@ public class MIPSCodeGenerator {
                     f.addVar(q.getArg1(), q.getArg2(), true, rows, cols);
                     break;
 
+                case "ASSIGN":
+                    String target = q.getResult();
+
+                    if (target != null &&
+                        !"-".equals(target) &&
+                        !isArrayAccess(target) &&
+                        !f.vars.containsKey(target)) {
+
+                        String inferredType = typeOf(f, q.getArg1());
+
+                        if ("UNKNOWN".equals(inferredType) && target.startsWith("switch_match")) {
+                            inferredType = "BOOL";
+                        }
+
+                        f.addVar(target, inferredType, false, 1, 1);
+                    }
+                    break;
+
                 case "+":
                 case "-":
                 case "*":

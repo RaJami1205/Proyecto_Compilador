@@ -1,0 +1,264 @@
+int~sumaEntera<|int~a,int~b|>|:
+    return~a+b!
+:|
+
+int~cuadrado<|int~n|>|:
+    return~n^2!
+:|
+
+float~promedio3<|float~a,float~b,float~c|>|:
+    return~<|a+b+c|>/3.0!
+:|
+
+bool~esPar<|int~n|>|:
+    return~equal<|n%2,0|>!
+:|
+
+bool~enRango<|int~valor,int~minimo,int~maximo|>|:
+    return~greather_t<|valor,minimo|>@less_te<|valor,maximo|>!
+:|
+
+int~factorial<|int~n|>|:
+    if~<|less_te<|n,1|>|>|:
+        return~1!
+    :|else~|:
+        return~n*factorial<|n-1|>!
+    :|
+:|
+
+int~fibonacci<|int~n|>|:
+    if~<|less_te<|n,1|>|>|:
+        return~n!
+    :|else~|:
+        return~fibonacci<|n-1|>+fibonacci<|n-2|>!
+    :|
+:|
+
+int~sumatoria<|int~n|>|:
+    if~<|less_te<|n,0|>|>|:
+        return~0!
+    :|else~|:
+        return~n+sumatoria<|n-1|>!
+    :|
+:|
+
+int~ajustarPorCaso<|int~opcion,int~valor|>|:
+    int~resultado!
+    resultado<-valor!
+
+    switch~<|opcion|>~|:
+        case~1~|:
+            resultado<-valor+10!
+            break!
+        :|
+        case~2~|:
+            resultado<-valor*2!
+            break!
+        :|
+        case~3~|:
+            resultado<-valor-5!
+            break!
+        :|
+        default~|:
+            resultado<-valor+1!
+        :|
+    :|
+
+    return~resultado!
+:|
+
+empty~__main__<||>|:
+    string~titulo<-"Prueba final completa"!
+    char~letra<-'A'!
+
+    int~lista<<1,6>><-|:|:3,5,8,13,21,34:|:|!
+    int~matriz<<3,3>><-|:|:1,2,3:|,|:4,5,6:|,|:7,8,9:|:|!
+    float~notas<<1,4>><-|:|:7.5,8.0,9.5,6.0:|:|!
+
+    int~i!
+    int~j!
+    int~sumaLista!
+    int~sumaDiagonal!
+    int~promedioEntero!
+    int~compleja!
+    int~fact5!
+    int~fib7!
+    int~sum6!
+    int~clasificado!
+    int~contador!
+    int~modo!
+    int~puntos!
+    int~negativo!
+
+    float~sumaNotas!
+    float~promedioNotas!
+    float~promedioTres!
+    float~ajusteFloat!
+
+    bool~parSuma!
+    bool~rangoOk!
+
+    cout~"===== INICIO PRUEBA FINAL ====="!
+    cout~"Caracter literal = ",'R'!
+    cout~"Literal cientifico = ",3e2!
+    cout~"Literal fraccionario = ",5//2!
+
+    sumaLista<-0!
+    sumaDiagonal<-0!
+    promedioEntero<-0!
+    contador<-0!
+    puntos<-0!
+    modo<-1!
+    sumaNotas<-0.0!
+    promedioNotas<-0.0!
+    promedioTres<-0.0!
+    ajusteFloat<-0.0!
+
+    {- operaciones unarias -}
+    contador<-5!
+    ++contador!
+    --contador!
+    negativo<- contador!
+
+    ajusteFloat<- -3.5!
+    ++ajusteFloat!
+    --ajusteFloat!
+
+    cout~"contador = ",contador!
+    cout~"negativo = ",negativo!
+    cout~"ajusteFloat = ",ajusteFloat!
+
+    {- modificaciones en lista, matriz y arreglo float -}
+    lista<<0,2>><-lista<<0,2>>+factorial<|3|>!
+    lista<<0,5>><-lista<<0,5>>-cuadrado<|2|>!
+
+    matriz<<1,1>><-matriz<<1,1>>*2!
+    matriz<<2,0>><-matriz<<2,0>>+matriz<<0,0>>!
+    matriz<<0,2>><-matriz<<0,2>>+cuadrado<|3|>!
+
+    notas<<0,1>><-notas<<0,1>>+1.0!
+    notas<<0,3>><-notas<<0,3>>+2.5!
+
+    {- suma de la lista -}
+    i<-0!
+    do~|:
+        sumaLista<-sumaLista+lista<<0,i>>!
+        i<-i+1!
+    :|~while~<|less_t<|i,6|>|>!
+
+    {- suma diagonal de matriz -}
+    i<-0!
+    do~|:
+        sumaDiagonal<-sumaDiagonal+matriz<<i,i>>!
+        i<-i+1!
+    :|~while~<|less_t<|i,3|>|>!
+
+    {- suma de notas flotantes -}
+    i<-0!
+    do~|:
+        sumaNotas<-sumaNotas+notas<<0,i>>!
+        i<-i+1!
+    :|~while~<|less_t<|i,4|>|>!
+
+    promedioEntero<-sumaLista/6!
+    promedioNotas<-sumaNotas/4.0!
+    promedioTres<-promedio3<|notas<<0,0>>,notas<<0,1>>,notas<<0,2>>|>!
+
+    {- expresion aritmetica compleja con parentesis, potencia, modulo y division -}
+    compleja<-<|<|2+3|>*<|4+1|>|>+<|<|8-2|>^2|>-<|6/3|>+<|17%5|>!
+
+    {- llamadas recursivas -}
+    fact5<-factorial<|5|>!
+    fib7<-fibonacci<|7|>!
+    sum6<-sumatoria<|6|>!
+
+    {- llamadas normales y booleanos -}
+    clasificado<-ajustarPorCaso<|2,sumaEntera<|fact5,fib7|>|>!
+    parSuma<-esPar<|sumaLista|>!
+    rangoOk<-enRango<|sumaLista,50,100|>!
+
+    cout~"sumaLista = ",sumaLista!
+    cout~"sumaDiagonal = ",sumaDiagonal!
+    cout~"promedioEntero = ",promedioEntero!
+    cout~"sumaNotas = ",sumaNotas!
+    cout~"promedioNotas = ",promedioNotas!
+    cout~"promedioTres = ",promedioTres!
+    cout~"compleja = ",compleja!
+    cout~"factorial 5 = ",fact5!
+    cout~"fibonacci 7 = ",fib7!
+    cout~"sumatoria 6 = ",sum6!
+    cout~"clasificado = ",clasificado!
+    cout~"parSuma = ",parSuma!
+    cout~"rangoOk = ",rangoOk!
+
+    {- if else con relaciones y operadores booleanos -}
+    if~<|less_te<|sumaLista,100|>@greather_t<|sumaDiagonal,15|>#n_equal<|compleja,0|>|>|:
+        cout~"IF principal: condicion verdadera"!
+        puntos<-puntos+10!
+    :|else~|:
+        cout~"IF principal: condicion falsa"!
+        puntos<-puntos-10!
+    :|
+
+    {- uso de NOT logico -}
+    if~<|$<|equal<|letra,'Z'|>|>|>|:
+        cout~"La letra no es Z"!
+        puntos<-puntos+1!
+    :|else~|:
+        cout~"La letra es Z"!
+        puntos<-puntos-1!
+    :|
+
+    {- switch con caida entre cases: case 1 no tiene break -}
+    switch~<|modo|>~|:
+        case~1~|:
+            cout~"switch: entro en case 1"!
+            puntos<-puntos+1!
+        :|
+        case~2~|:
+            cout~"switch: case 2 o caida desde case 1"!
+            puntos<-puntos+2!
+            break!
+        :|
+        case~3~|:
+            cout~"switch: case 3"!
+            puntos<-puntos+3!
+            break!
+        :|
+        default~|:
+            cout~"switch: default"!
+            puntos<-puntos+4!
+        :|
+    :|
+
+    {- imprimir matriz completa -}
+    cout~"===== MATRIZ FINAL ====="!
+    i<-0!
+    do~|:
+        j<-0!
+        do~|:
+            cout~"matriz[",i,",",j,"] = ",matriz<<i,j>>!
+            j<-j+1!
+        :|~while~<|less_t<|j,3|>|>!
+        i<-i+1!
+    :|~while~<|less_t<|i,3|>|>!
+
+    {- imprimir lista completa -}
+    cout~"===== LISTA FINAL ====="!
+    i<-0!
+    do~|:
+        cout~"lista[0,",i,"] = ",lista<<0,i>>!
+        i<-i+1!
+    :|~while~<|less_t<|i,6|>|>!
+
+    {- imprimir notas -}
+    cout~"===== NOTAS FINALES ====="!
+    i<-0!
+    do~|:
+        cout~"nota[0,",i,"] = ",notas<<0,i>>!
+        i<-i+1!
+    :|~while~<|less_t<|i,4|>|>!
+
+    cout~"puntos finales = ",puntos!
+    cout~"===== FIN PRUEBA FINAL ====="!
+:|

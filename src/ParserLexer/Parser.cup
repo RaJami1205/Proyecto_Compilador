@@ -1563,6 +1563,8 @@ rel_expr ::= EQUAL PIPE_L eq_operand:a COMMA eq_operand:b PIPE_R
 
 eq_operand ::= num_expr:n  {: RESULT = n; :}
              | bool_expr:b {: RESULT = b; :}
+             | char_expr:c {: RESULT = c; :}
+             | string_expr:s {: RESULT = s; :}
              ;
 
 bool_literal ::= TRUE
