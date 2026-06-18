@@ -1,8 +1,7 @@
   float~func1 <| char~x22,char~x23 |>  |:
 	string~sss<-"Hola"!
-	int~numero <- 20 + 21! int~g! char~letra<-'a'! float~h!
-	h <- ++numero * <|10 + 2e4|> / 44 ^ 88 % --numero!
-	h <- 4.4 * func1 <|letra,'b'|> / 9.9 - 6//7!
+	int~numero <- 20 + 21! int~g! char~letra<-'a'! int~h!
+	h <- ++numero * <|10 + 15|> / 44 ^ 88 % --numero!
 	cout ~numero !
 	float~ff <--0.01!
 	char~_miChar_<-'!' !

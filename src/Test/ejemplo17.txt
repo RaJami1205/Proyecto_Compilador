@@ -10,7 +10,7 @@ empty~__main__<||>|:
     int~n!
     int~r!
 
-    n<-6!
+    n<-20!
     r<-fibonacci<|n|>!
 
     cout~"fibonacci =",r!

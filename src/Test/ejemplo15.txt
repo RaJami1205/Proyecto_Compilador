@@ -6,11 +6,11 @@ empty~__main__<||>|:
     int~j!
     int~sumaLista!
     int~sumaDiagonal!
-    float~promedio!
+    int~promedio!
 
     sumaLista<-0!
     sumaDiagonal<-0!
-    promedio<-0.0!
+    promedio<-0!
 
     {- modificar algunos elementos -}
     lista<<0,2>><-lista<<0,2>>+10!
@@ -42,7 +42,7 @@ empty~__main__<||>|:
         i<-i+1!
     :|~while~<|less_t<|i,3|>|>!
 
-    promedio<-sumaLista/5.0!
+    promedio<-sumaLista/5!
 
     cout~"lista[0,2] modificada = ",lista<<0,2>>!
     cout~"suma de la lista = ",sumaLista!

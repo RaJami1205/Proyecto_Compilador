@@ -6,8 +6,10 @@ int~sumar<|int~a,int~b|>|:
 
 empty~__main__<||>|:
     int~x!
-    int~x!
+    int~y!
+    int~z!
+    x<-10!
     y<-10!
-    x<-sumar<|2,3|>!
-    cout~x!
+    z<-sumar<|x,y|>!
+    cout~z!
 :|
