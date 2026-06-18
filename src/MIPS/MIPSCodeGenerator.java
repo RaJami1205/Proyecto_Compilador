@@ -528,6 +528,11 @@ public class MIPSCodeGenerator {
             return;
         }
 
+        if (isBooleanVariable(f, value)) {
+            emitBooleanVariable(f, value);
+            return;
+        }
+
         if (isCharLiteral(value)) {
             text.append("    li    $a0, ").append((int) value.charAt(1)).append("\n");
             text.append("    li    $v0, 11\n");
@@ -614,12 +619,12 @@ public class MIPSCodeGenerator {
         text.append(endLabel).append(":\n");
     }
 
-    /**
+     /**
      * Verifica si un valor corresponde a una variable booleana.
      */
     private boolean isBooleanVariable(FunctionBlock f, String value) {
         VarInfo v = f.vars.get(value);
-        return v != null && "BOOL".equals(v.type);
+        return v != null && isBooleanType(v.type);
     }
 
     /**
@@ -643,8 +648,18 @@ public class MIPSCodeGenerator {
      * Emite llamada a función.
      */
     private void emitCall(FunctionBlock f, String functionName, String result, List<String> params) {
+        FunctionBlock callee = functions.get(functionName);
+
         for (int i = 0; i < params.size() && i < 4; i++) {
-            loadIntOperand(f, params.get(i), "$a" + i);
+            String paramValue = params.get(i);
+            String expectedType = getParameterType(callee, i);
+
+            if (isFloatType(expectedType)) {
+                loadFloatOperand(f, paramValue, "$f0");
+                text.append("    mfc1  $a").append(i).append(", $f0\n");
+            } else {
+                loadIntOperand(f, paramValue, "$a" + i);
+            }
         }
 
         text.append("    jal   ").append(functionName).append("\n");
@@ -671,6 +686,40 @@ public class MIPSCodeGenerator {
         }
 
         text.append("    j     ").append(functionEndLabel(f)).append("\n");
+    }
+
+    /**
+     * Obtiene el tipo de un parámetro de una función.
+     */
+    private String getParameterType(FunctionBlock function, int index) {
+        if (function == null) {
+            return "UNKNOWN";
+        }
+
+        if (index < 0 || index >= function.parameters.size()) {
+            return "UNKNOWN";
+        }
+
+        String paramName = function.parameters.get(index);
+        VarInfo paramInfo = function.vars.get(paramName);
+
+        return paramInfo != null ? paramInfo.type : "UNKNOWN";
+    }
+
+    /**
+     * Indica si un tipo es numérico flotante
+     */
+    private boolean isFloatType(String type) {
+        return "FLOAT".equals(type) ||
+            "SCIENTIFIC".equals(type) ||
+            "FRAC".equals(type);
+    }
+
+    /**
+     * Indica si un tipo es booleano
+     */
+    private boolean isBooleanType(String type) {
+        return "BOOL".equals(type);
     }
 
     /**
@@ -809,8 +858,9 @@ public class MIPSCodeGenerator {
         }
 
         if (isIntegerLiteral(value)) {
-            String label = registerFloatLiteral(value + ".0");
-            text.append("    l.s   ").append(freg).append(", ").append(label).append("\n");
+            text.append("    li    $t9, ").append(value).append("\n");
+            text.append("    mtc1  $t9, ").append(freg).append("\n");
+            text.append("    cvt.s.w ").append(freg).append(", ").append(freg).append("\n");
             return;
         }
 

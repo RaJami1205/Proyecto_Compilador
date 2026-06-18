@@ -7,7 +7,7 @@ int~cuadruple<|int~x|>|:
 :|
 
 bool~esCuatro<|int~v|>|:
-    return~equal<|v,4|>!
+    return~equal<|v,8|>!
 :|
 
 empty~__main__<||>|:
