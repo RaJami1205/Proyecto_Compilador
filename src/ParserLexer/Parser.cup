@@ -1194,8 +1194,12 @@ read_target ::= IDENTIFIER:id
               | array_access:a
                 {: RESULT = a; :}
               ;
-
-write_stmt ::= COUT TILDE output_list ;
+              
+write_stmt ::= COUT TILDE output_list
+               {:
+                   codigoIntermedio.add("NEWLINE", "-", "-", "-");
+               :}
+             ;
 
 output_list ::= output_value:v
                 {:

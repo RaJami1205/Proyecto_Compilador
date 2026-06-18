@@ -205,6 +205,10 @@ public class MIPSCodeGenerator {
                 case "WRITE":
                     emitWrite(f, q.getArg1());
                     break;
+                
+                case "NEWLINE":
+                    emitNewline();
+                    break;
 
                 case "READ":
                     emitRead(f, q.getResult());
@@ -521,6 +525,15 @@ public class MIPSCodeGenerator {
 
         loadIntOperand(f, value, "$a0");
         text.append("    li    $v0, 1\n");
+        text.append("    syscall\n");
+    }
+
+    /**
+     * Emite un salto de línea.
+     */
+    private void emitNewline() {
+        text.append("    li    $a0, 10\n");
+        text.append("    li    $v0, 11\n");
         text.append("    syscall\n");
     }
 
