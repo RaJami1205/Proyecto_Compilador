@@ -544,15 +544,14 @@ parser code {:
     private static class SwitchState {
         public final ExprAttr control;
         public final String endLabel;
-        public String skipLabel;
-        public boolean breakInCurrentCase;
+        public final String matchedName;
+        public String nextCaseLabel;
 
-        /** Construye un nuevo bloque de estructura de selección */
-        public SwitchState(ExprAttr control, String endLabel) {
+        public SwitchState(ExprAttr control, String endLabel, String matchedName) {
             this.control = control;
             this.endLabel = endLabel;
-            this.skipLabel = null;
-            this.breakInCurrentCase = false;
+            this.matchedName = matchedName;
+            this.nextCaseLabel = null;
         }
     }
 
@@ -1316,19 +1315,19 @@ switch_stmt ::= SWITCH TILDE PIPE_L expression:e PIPE_R TILDE
                             " en línea " + eleft
                         );
                     }
+                    
                     String endLabel = codigoIntermedio.newLabel("switch_end");
+                    String matchedName = codigoIntermedio.newLabel("switch_match");
+
                     breakLabels.push(endLabel);
-                    switchStack.push(new SwitchState(e, endLabel));
+                    switchStack.push(new SwitchState(e, endLabel, matchedName));
+
+                    codigoIntermedio.add("ASSIGN", "false", "-", matchedName);
                 :}
+
                 BLOCK_OPEN switch_stmt_body BLOCK_CLOSE
                 {:
                     SwitchState sw = switchStack.pop();
-
-                    if (sw.skipLabel != null) {
-                        codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
-                        sw.skipLabel = null;
-                    }
-
                     codigoIntermedio.add("LABEL", "-", "-", sw.endLabel);
                     breakLabels.pop();
                 :}
@@ -1347,50 +1346,32 @@ case_list ::= case_section case_list
 case_section ::= CASE TILDE case_constant:k TILDE
                  {:
                      SwitchState sw = switchStack.peek();
-                     String skip = codigoIntermedio.newLabel("switch_case_next");
+
+                     String bodyLabel = codigoIntermedio.newLabel("switch_case_body");
+                     String nextLabel = codigoIntermedio.newLabel("switch_case_next");
+
+                     sw.nextCaseLabel = nextLabel;
+
+                     codigoIntermedio.add("IF_TRUE", sw.matchedName, "-", bodyLabel);
+
                      ExprAttr cmp = emitBinary("EQ", sw.control, k);
+                     codigoIntermedio.add("IF_FALSE", cmp.place, "-", nextLabel);
 
-                     codigoIntermedio.add("IF_FALSE", cmp.place, "-", skip);
+                     codigoIntermedio.add("LABEL", "-", "-", bodyLabel);
 
-                     sw.skipLabel = skip;
-                     sw.breakInCurrentCase = false;
+                     codigoIntermedio.add("ASSIGN", "true", "-", sw.matchedName);
                  :}
+
                  block
                  {:
                      SwitchState sw = switchStack.peek();
-
-                     if (!sw.breakInCurrentCase) {
-                         codigoIntermedio.add("GOTO", "-", "-", sw.endLabel);
-                     }
-
-                     if (sw.skipLabel != null) {
-                         codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
-                         sw.skipLabel = null;
-                     }
-
-                     sw.breakInCurrentCase = false;
+                     codigoIntermedio.add("LABEL", "-", "-", sw.nextCaseLabel);
+                     sw.nextCaseLabel = null;
                  :}
                  ;
 
-default_opt ::= DEFAULT TILDE
-                {:
-                    SwitchState sw = switchStack.peek();
-
-                    if (sw.skipLabel != null) {
-                        codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
-                        sw.skipLabel = null;
-                    }
-                :}
-                block
+default_opt ::= DEFAULT TILDE block
               | /* empty */
-                {:
-                    SwitchState sw = switchStack.peek();
-
-                    if (sw.skipLabel != null) {
-                        codigoIntermedio.add("LABEL", "-", "-", sw.skipLabel);
-                        sw.skipLabel = null;
-                    }
-                :}
               ;
 
 case_constant ::= INTEGER_LITERAL:v
@@ -1437,10 +1418,6 @@ break_stmt ::= BREAK:b
 
                    if (!breakLabels.isEmpty()) {
                        codigoIntermedio.add("GOTO", "-", "-", breakLabels.peek());
-                   }
-
-                   if (!switchStack.isEmpty()) {
-                       switchStack.peek().breakInCurrentCase = true;
                    }
                :}
              ;

@@ -11,7 +11,6 @@ empty~__main__<||>|:
     do~|:
         x<-x+1!
         cout~"iterando", x!
-        int~x!
     :|~while~<|less_t<|x,30|>|>!
 
     switch~<|x|>~|:
