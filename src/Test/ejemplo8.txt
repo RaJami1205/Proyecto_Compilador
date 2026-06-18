@@ -3,7 +3,7 @@ int~doble<|int~n|>|:
 :|
 
 float~promedio<|float~a,float~b|>|:
-    return~a+b/2.0!
+    return~<|a+b|>/2.0!
 :|
 
 bool~esDiez<|int~x|>|:

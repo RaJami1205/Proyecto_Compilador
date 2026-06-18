@@ -104,6 +104,9 @@ public class MIPSCodeGenerator {
             registerLiteralIfNeeded(q.getArg2());
             registerLiteralIfNeeded(q.getResult());
         }
+
+        registerStringLiteral("\"true\"");
+        registerStringLiteral("\"false\"");
     }
 
     /**
@@ -141,7 +144,8 @@ public class MIPSCodeGenerator {
 
         List<String> pendingParams = new ArrayList<>();
 
-        for (Quadruple q : f.quads) {
+        for (int i = 0; i < f.quads.size(); i++) {
+            Quadruple q = f.quads.get(i);
             String op = q.getOperator();
 
             switch (op) {
@@ -204,6 +208,11 @@ public class MIPSCodeGenerator {
 
                 case "WRITE":
                     emitWrite(f, q.getArg1());
+
+                    if (hayOtroWriteSeguido(f.quads, i)) {
+                        emitSpace();
+                    }
+
                     break;
                 
                 case "NEWLINE":
@@ -509,6 +518,16 @@ public class MIPSCodeGenerator {
             return;
         }
 
+        if ("true".equals(value)) {
+            emitBooleanLiteral(true);
+            return;
+        }
+
+        if ("false".equals(value)) {
+            emitBooleanLiteral(false);
+            return;
+        }
+
         if (isCharLiteral(value)) {
             text.append("    li    $a0, ").append((int) value.charAt(1)).append("\n");
             text.append("    li    $v0, 11\n");
@@ -529,12 +548,78 @@ public class MIPSCodeGenerator {
     }
 
     /**
+     * Imprime un espacio en consola.
+     */
+    private void emitSpace() {
+        text.append("    li    $a0, 32\n");
+        text.append("    li    $v0, 11\n");
+        text.append("    syscall\n");
+    }
+
+    /**
      * Emite un salto de línea.
      */
     private void emitNewline() {
         text.append("    li    $a0, 10\n");
         text.append("    li    $v0, 11\n");
         text.append("    syscall\n");
+    }
+
+    /**
+     * Indica si el siguiente cuádruplo también es WRITE.
+     * Sirve para imprimir un espacio entre valores de un mismo cout.
+     */
+    private boolean hayOtroWriteSeguido(List<Quadruple> code, int index) {
+        if (index + 1 >= code.size()) {
+            return false;
+        }
+
+        return "WRITE".equals(code.get(index + 1).getOperator());
+    }
+
+    /**
+     * Imprime un booleano literal como texto.
+     */
+    private void emitBooleanLiteral(boolean value) {
+        String label = registerStringLiteral(value ? "\"true\"" : "\"false\"");
+
+        text.append("    li    $v0, 4\n");
+        text.append("    la    $a0, ").append(label).append("\n");
+        text.append("    syscall\n");
+    }
+
+    /**
+     * Imprime una variable booleana como true o false.
+     */
+    private void emitBooleanVariable(FunctionBlock f, String value) {
+        String trueLabel = internalLabel("print_bool_true");
+        String endLabel = internalLabel("print_bool_end");
+
+        String trueString = registerStringLiteral("\"true\"");
+        String falseString = registerStringLiteral("\"false\"");
+
+        loadIntOperand(f, value, "$t0");
+
+        text.append("    bne   $t0, $zero, ").append(trueLabel).append("\n");
+        text.append("    li    $v0, 4\n");
+        text.append("    la    $a0, ").append(falseString).append("\n");
+        text.append("    syscall\n");
+        text.append("    j     ").append(endLabel).append("\n");
+
+        text.append(trueLabel).append(":\n");
+        text.append("    li    $v0, 4\n");
+        text.append("    la    $a0, ").append(trueString).append("\n");
+        text.append("    syscall\n");
+
+        text.append(endLabel).append(":\n");
+    }
+
+    /**
+     * Verifica si un valor corresponde a una variable booleana.
+     */
+    private boolean isBooleanVariable(FunctionBlock f, String value) {
+        VarInfo v = f.vars.get(value);
+        return v != null && "BOOL".equals(v.type);
     }
 
     /**
@@ -878,6 +963,13 @@ public class MIPSCodeGenerator {
         } else if (isFloatLike(value)) {
             registerFloatLiteral(value);
         }
+    }
+
+    /**
+     * Registra un literal string en .data y retorna su etiqueta.
+     */
+    private String registerStringLiteral(String value) {
+        return stringLabels.computeIfAbsent(value, v -> "__str_" + (++stringCounter));
     }
 
     /**
