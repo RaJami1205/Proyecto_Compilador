@@ -396,16 +396,40 @@ public class MIPSCodeGenerator {
         storeIntOperand(f, result, "$t2");
     }
 
-    /**
+   /**
      * Emite operaciones unarias como NEG, INC, DEC y NOT.
      */
     private void emitUnary(FunctionBlock f, String op, String a, String result) {
         VarInfo resultInfo = f.vars.get(result);
 
-        if (resultInfo != null && resultInfo.isFloat() && "NEG".equals(op)) {
+        if (resultInfo != null && resultInfo.isFloat()) {
             loadFloatOperand(f, a, "$f0");
-            text.append("    neg.s $f2, $f0\n");
-            text.append("    s.s   $f2, ").append(resultInfo.offset).append("($fp)\n");
+
+            switch (op) {
+                case "NEG":
+                    text.append("    neg.s $f4, $f0\n");
+                    break;
+
+                case "INC":
+                    text.append("    li    $t9, 1\n");
+                    text.append("    mtc1  $t9, $f2\n");
+                    text.append("    cvt.s.w $f2, $f2\n");
+                    text.append("    add.s $f4, $f0, $f2\n");
+                    break;
+
+                case "DEC":
+                    text.append("    li    $t9, 1\n");
+                    text.append("    mtc1  $t9, $f2\n");
+                    text.append("    cvt.s.w $f2, $f2\n");
+                    text.append("    sub.s $f4, $f0, $f2\n");
+                    break;
+
+                default:
+                    text.append("    mov.s $f4, $f0\n");
+                    break;
+            }
+
+            text.append("    s.s   $f4, ").append(resultInfo.offset).append("($fp)\n");
             return;
         }
 
@@ -415,15 +439,19 @@ public class MIPSCodeGenerator {
             case "NEG":
                 text.append("    sub   $t1, $zero, $t0\n");
                 break;
+
             case "INC":
                 text.append("    addi  $t1, $t0, 1\n");
                 break;
+
             case "DEC":
                 text.append("    addi  $t1, $t0, -1\n");
                 break;
+
             case "NOT":
                 text.append("    seq   $t1, $t0, $zero\n");
                 break;
+
             default:
                 text.append("    move  $t1, $t0\n");
                 break;

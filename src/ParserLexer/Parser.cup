@@ -1685,7 +1685,7 @@ power_stage ::= prefix_stage:p POW power_stage:pw
                             " en línea " + pwleft
                         );
                     }
-                    RESULT = emitBinary("POW", p, pw);
+                    RESULT = emitBinary("^", p, pw);
                 :}
               | prefix_stage:p
                 {: RESULT = p; :}
