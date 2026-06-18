@@ -1,4 +1,39 @@
+int~sumar<|int~a,int~b|>|:
+    int~r!
+    r<-a+b!
+    return~r!
+:|
+
+int~doble<|int~n|>|:
+    return~n*2!
+:|
+
+bool~esMayorQueDiez<|int~x|>|:
+    return~greather_t<|x,10|>!
+:|
+
 empty~__main__<||>|:
     int~x!
-    x<-10!
+    int~y!
+    int~z!
+    bool~cond!
+
+    x<-4!
+    y<-sumar<|x,7|>!
+    z<-doble<|y|>!
+    cond<-esMayorQueDiez<|z|>!
+
+    cout~"x = ",x!
+    cout~"y = ",y!
+    cout~"z = ",z!
+
+    if~<|equal<|cond,true|>|>|:
+        cout~"z es mayor que diez"!
+        z<-sumar<|z,100|>!
+    :|else~|:
+        cout~"z no es mayor que diez"!
+        z<-doble<|z|>!
+    :|
+
+    cout~"resultado final = ",z!
 :|

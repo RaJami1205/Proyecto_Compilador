@@ -13,6 +13,7 @@ import Sintactico.sym;
 
 import Intermedio.GenerateLabel;
 import Intermedio.GenerateTemp;
+import MIPS.MIPSCodeGenerator;
 
 /**
  * Clase principal de prueba del compilador.
@@ -382,6 +383,7 @@ public class App {
 
     /**
      * Imprime y exporta el código intermedio si no hubo errores.
+     * También genera el código ensamblador MIPS final.
      *
      * @param parser Parser ya ejecutado
      * @param archivoIntermedio Ruta de salida del archivo de código intermedio
@@ -397,6 +399,20 @@ public class App {
         parser.getCodigoIntermedio().printCode();
         parser.getCodigoIntermedio().exportToFile(archivoIntermedio);
         System.out.println("\nCódigo intermedio generado en: " + archivoIntermedio);
+
+        imprimirTituloSeccion("[6] CÓDIGO FINAL MIPS");
+
+        try {
+            String archivoMips = OUTPUT_DIR + "/codigo_Objeto.asm";
+            MIPSCodeGenerator generator = new MIPSCodeGenerator(parser.getCodigoIntermedio());
+            generator.generate(archivoMips);
+
+            System.out.println("Código MIPS generado correctamente en: " + archivoMips);
+            System.out.println("Puedes abrir este archivo en QtSpim.");
+        } catch (Exception e) {
+            System.out.println("No se pudo generar el código MIPS.");
+            System.out.println("Detalle: " + e.getMessage());
+        }
     }
 
     /**

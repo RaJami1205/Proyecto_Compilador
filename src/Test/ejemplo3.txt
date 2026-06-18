@@ -1,4 +1,5 @@
 empty~__main__<||>|:
     int~x!
     x<-10!
+    cout~"x = ",x!
 :|
