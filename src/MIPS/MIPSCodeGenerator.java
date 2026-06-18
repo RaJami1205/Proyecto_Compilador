@@ -891,8 +891,12 @@ public class MIPSCodeGenerator {
         return s != null && s.matches("-?\\d+");
     }
 
-    private boolean isFloatLike(String s) {
-        return s != null && (s.matches("-?\\d+\\.\\d+") || s.matches("-?\\d+(\\.\\d+)?[eE][+-]?\\d+"));
+   private boolean isFloatLike(String s) {
+        return s != null &&
+            (
+                s.matches("-?\\d+\\.\\d+") ||
+                s.matches("-?\\d+(\\.\\d+)?[eE][+-]?\\d+")
+            );
     }
 
     private boolean isFractionLiteral(String s) {
@@ -924,14 +928,30 @@ public class MIPSCodeGenerator {
     }
 
     private String normalizeFloatLiteral(String value) {
-        if (value.matches("-?\\d+")) return value + ".0";
+        if (value == null) {
+            return "0.0";
+        }
+
         if (isFractionLiteral(value)) {
             String[] parts = value.split("//");
             double a = Double.parseDouble(parts[0]);
             double b = Double.parseDouble(parts[1]);
             return String.valueOf(a / b);
         }
-        return value;
+
+        if (value.matches("-?\\d+")) {
+            return value + ".0";
+        }
+
+        if (value.matches("-?\\d+(\\.\\d+)?[eE][+-]?\\d+")) {
+            return String.valueOf(Double.parseDouble(value));
+        }
+
+        if (value.matches("-?\\d+\\.\\d+")) {
+            return value;
+        }
+
+        return "0.0";
     }
 
     private int align(int value, int multiple) {
