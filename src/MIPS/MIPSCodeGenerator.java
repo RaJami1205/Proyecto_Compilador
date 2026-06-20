@@ -2,7 +2,6 @@ package MIPS;
 
 import Intermedio.IntermediateCode;
 import Intermedio.Quadruple;
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -1075,10 +1074,16 @@ public class MIPSCodeGenerator {
         return floatLabels.computeIfAbsent(value, v -> "__float_" + (++floatCounter));
     }
 
+     /**
+     * Indica si una cadena representa un literal entero (opcionalmente negativo).
+     */
     private boolean isIntegerLiteral(String s) {
         return s != null && s.matches("-?\\d+");
     }
 
+     /**
+     * Indica si una cadena representa un literal flotante.
+     */
    private boolean isFloatLike(String s) {
         return s != null &&
             (
@@ -1087,27 +1092,45 @@ public class MIPSCodeGenerator {
             );
     }
 
+     /**
+     * Indica si una cadena representa un literal fraccionario.
+     */
     private boolean isFractionLiteral(String s) {
         return s != null && s.matches("-?\\d+//\\d+");
     }
 
+     /**
+     * Indica si una cadena representa un literal de cadena.
+     */
     private boolean isStringLiteral(String s) {
         return s != null && s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"");
     }
 
+     /**
+     * Indica si una cadena representa un literal de carácter.
+     */
     private boolean isCharLiteral(String s) {
         return s != null && s.length() >= 3 && s.startsWith("'") && s.endsWith("'");
     }
 
+     /**
+     * Indica si una cadena representa un acceso a un arreglo.
+     */
     private boolean isArrayAccess(String s) {
         return s != null && s.contains("[") && s.endsWith("]");
     }
 
+     /**
+     * Indica si una cadena representa una variable flotante.
+     */
     private boolean isFloatVariable(FunctionBlock f, String value) {
         VarInfo v = f.vars.get(value);
         return v != null && v.isFloat();
     }
 
+     /**
+     * Convierte un literal fraccionario a entero.
+     */
     private int fractionToInt(String value) {
         String[] parts = value.split("//");
         int a = Integer.parseInt(parts[0]);
@@ -1115,6 +1138,9 @@ public class MIPSCodeGenerator {
         return a / b;
     }
 
+     /**
+     * Normaliza un literal flotante.
+     */
     private String normalizeFloatLiteral(String value) {
         if (value == null) {
             return "0.0";
@@ -1142,18 +1168,30 @@ public class MIPSCodeGenerator {
         return "0.0";
     }
 
+     /**
+     * Alinea un valor en un múltiplo de 8.
+     */
     private int align(int value, int multiple) {
         return ((value + multiple - 1) / multiple) * multiple;
     }
 
+     /**
+     * Genera una etiqueta interna.
+     */
     private String internalLabel(String base) {
         return "__" + base + "_" + (++internalLabelCounter);
     }
 
+     /**
+     * Genera una etiqueta de final de función.
+     */
     private String functionEndLabel(FunctionBlock f) {
         return (f.isMain() ? "main" : f.name) + "_end";
     }
 
+     /**
+     * Analiza un acceso a un arreglo.
+     */
     private ArrayAccess parseArrayAccess(String access) {
         Pattern p = Pattern.compile("(.+)\\[(.+),(.+)\\]");
         Matcher m = p.matcher(access);
